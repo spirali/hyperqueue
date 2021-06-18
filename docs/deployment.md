@@ -14,7 +14,11 @@ The server can be simply started by the following command:
 ``hq server start``
 
 
-Note: The server opens two TCP/IP ports: one for submitting jobs and one for connecting workers. By default, these ports are automatically assigned by the operation system. A user does not remmber them, they are stored in the "server directory". Other components automatically reads these settings.
+!!! Note
+
+    The server opens two TCP/IP ports: one for submitting jobs and one for connecting workers. By default, these ports
+    are automatically assigned by the operation system. You do not have to remember them, as they are stored in the
+    "server directory". Other components automatically read these settings.
 
 
 ## Server directory

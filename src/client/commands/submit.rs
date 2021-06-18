@@ -14,6 +14,7 @@ use crate::client::globalsettings::GlobalSettings;
 use crate::client::job::print_job_detail;
 use crate::client::resources::parse_cpu_request;
 use crate::common::arraydef::ArrayDef;
+use crate::common::env::create_hq_env;
 use crate::transfer::connection::ClientConnection;
 use crate::transfer::messages::{FromClientMessage, JobType, SubmitRequest, ToClientMessage};
 use crate::{rpc_call, JobTaskCount};
@@ -171,7 +172,7 @@ pub async fn submit_computation(
     };
 
     let env_count = opts.env.len();
-    let env: HashMap<_, _> = opts
+    let mut env: HashMap<_, _> = opts
         .env
         .into_iter()
         .map(|env| (env.key, env.value))
@@ -181,6 +182,13 @@ pub async fn submit_computation(
         log::warn!(
             "Some environment variables were ignored. Check if you haven't used duplicate keys."
         )
+    }
+
+    if let Some(ref stdout) = stdout {
+        env.insert(create_hq_env("STDOUT"), stdout.to_str().unwrap().into());
+    }
+    if let Some(ref stderr) = stderr {
+        env.insert(create_hq_env("STDERR"), stderr.to_str().unwrap().into());
     }
 
     let message = FromClientMessage::Submit(SubmitRequest {

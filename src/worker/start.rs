@@ -9,6 +9,7 @@ use tempdir::TempDir;
 use tokio::task::LocalSet;
 
 use crate::client::globalsettings::GlobalSettings;
+use crate::common::env::create_hq_env;
 use crate::common::error::error;
 use crate::common::serverdir::ServerDir;
 use crate::worker::hwdetect::detect_resource;
@@ -70,11 +71,11 @@ fn launcher_setup(task: &Task, def: LauncherDefinition) -> tako::Result<ProgramD
 
     if def.pin {
         pin_program(&mut program, &allocation);
-        program.env.insert("HQ_PIN".into(), "1".into());
+        program.env.insert(create_hq_env("PIN"), "1".into());
     }
 
     program.env.insert(
-        "HQ_CPUS".into(),
+        create_hq_env("CPUS"),
         allocation.comma_delimited_cpu_ids().into(),
     );
     Ok(program)

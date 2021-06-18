@@ -2,6 +2,7 @@ pub use wrapped::WrappedRcRefCell;
 
 pub mod arraydef;
 pub mod arrayparser;
+pub mod env;
 pub mod error;
 pub mod fsutils;
 pub mod parser;

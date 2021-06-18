@@ -13,6 +13,7 @@ use hyperqueue::client::job::Status;
 use hyperqueue::client::worker::print_worker_info;
 use hyperqueue::common::fsutils::absolute_path;
 use hyperqueue::common::setup::setup_logging;
+use hyperqueue::script::{command_script, ScriptOpts};
 use hyperqueue::server::bootstrap::{get_client_connection, init_hq_server};
 use hyperqueue::worker::hwdetect::{detect_resource, print_resource_descriptor};
 use hyperqueue::worker::start::{start_hq_worker, WorkerStartOpts};
@@ -61,6 +62,7 @@ enum SubCommand {
     Cancel(CancelOpts),
     /// Commands for controlling HyperQueue workers
     Worker(WorkerOpts),
+    Script(ScriptOpts),
 }
 
 // Server CLI options
@@ -321,6 +323,7 @@ async fn main() -> hyperqueue::Result<()> {
         SubCommand::Job(opts) => command_job_detail(gsettings, opts).await,
         SubCommand::Submit(opts) => command_submit(gsettings, opts).await,
         SubCommand::Cancel(opts) => command_cancel(gsettings, opts).await,
+        SubCommand::Script(opts) => command_script(gsettings, opts),
     };
     if let Err(e) = result {
         eprintln!("{:?}", e);

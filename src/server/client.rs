@@ -11,6 +11,7 @@ use tako::messages::gateway::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Notify;
 
+use crate::common::env::create_hq_env;
 use crate::server::job::{Job, JobTaskState};
 use crate::server::rpc::TakoServer;
 use crate::server::state::StateRef;
@@ -226,9 +227,9 @@ fn make_program_def_for_task(
 
     let mut def = program_def.clone();
     def.env
-        .insert("HQ_JOB_ID".into(), job_id.to_string().into());
+        .insert(create_hq_env("JOB_ID"), job_id.to_string().into());
     def.env
-        .insert("HQ_TASK_ID".into(), task_id.to_string().into());
+        .insert(create_hq_env("TASK_ID"), task_id.to_string().into());
     def.stdout = def
         .stdout
         .and_then(|p| p.to_str().map(make_replacement).map(PathBuf::from));
@@ -253,7 +254,7 @@ async fn handle_submit(
     let make_task = |job_id, task_id, tako_id, entry: Option<BString>| {
         let mut program = make_program_def_for_task(&spec, job_id, task_id);
         if let Some(e) = entry {
-            program.env.insert("HQ_ENTRY".into(), e);
+            program.env.insert(create_hq_env("ENTRY"), e);
         }
         let launcher_def = LauncherDefinition { program, pin };
         let body = rmp_serde::to_vec_named(&launcher_def).unwrap();

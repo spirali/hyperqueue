@@ -1,5 +1,6 @@
 pub mod client;
 pub mod common;
+pub mod script;
 pub mod server;
 pub mod transfer;
 pub mod worker;

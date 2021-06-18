@@ -1,7 +1,12 @@
 import time
-from typing import List, Union, Set
+from typing import List, Union
 
 DEFAULT_TIMEOUT = 5
+
+
+def read_file(path: str) -> str:
+    with open(path) as f:
+        return f.read()
 
 
 def parse_table(table_string: str) -> List[str]:

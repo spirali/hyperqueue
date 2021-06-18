@@ -15,15 +15,21 @@ nav:
   - Jobs (Basics): jobs.md
   - Task Arrays: arrays.md
   - CPU management: cpus.md
+  - Cookbook:
+    - Handling many output files: cookbook/handling_many_files.md
 
 
 theme:
   name: readthedocs
   custom_dir: docs/theme
+  highlightjs: true
+  hljs_languages:
+    - bash
 
 markdown_extensions:
   - toc:
       permalink: "#"
+  - admonition
 
 plugins:
   - search

@@ -3,6 +3,7 @@ use cli_table::{print_stdout, Cell, CellStruct, Color, Style, Table};
 
 use crate::client::globalsettings::GlobalSettings;
 use crate::client::resources::cpu_request_to_string;
+use crate::common::env::is_hq_env;
 use crate::server::job::{JobTaskCounters, JobTaskInfo, JobTaskState};
 use crate::transfer::messages::{JobDetail, JobInfo, JobType};
 use crate::JobTaskCount;
@@ -255,7 +256,11 @@ pub fn print_job_detail(
             .unwrap_or_else(|| "N/A".to_string())
             .cell(),
     ]);
-    let mut env_vars: Vec<(_, _)> = program_def.env.iter().collect();
+    let mut env_vars: Vec<(_, _)> = program_def
+        .env
+        .iter()
+        .filter(|(k, _)| !is_hq_env(k))
+        .collect();
     env_vars.sort_by_key(|item| item.0);
     rows.push(vec![
         "Environment".cell().bold(true),

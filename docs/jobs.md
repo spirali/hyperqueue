@@ -67,6 +67,10 @@ You can disable creating stdout/stderr completely by setting value ``none``.
 (``--stdout=none`` / ``--stderr=none``).
 
 
+!!! Hint
+
+    If you run many jobs/tasks, they might produce an unwieldy amount of stdout/stderr files. [Here](cookbook/handling_many_files.md) you can read how you handle this situation.
+
 ## Task states
 
 ```
