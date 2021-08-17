@@ -20,6 +20,10 @@ use hyperqueue::common::arraydef::IntArray;
 use hyperqueue::common::fsutils::absolute_path;
 use hyperqueue::common::setup::setup_logging;
 use hyperqueue::common::timeutils::ArgDuration;
+use hyperqueue::common::WrappedRcRefCell;
+use hyperqueue::dashboard::dashboard_manager::DashboardManager;
+use hyperqueue::dashboard::dashboard_state::DashboardState;
+use hyperqueue::rpc_call;
 use hyperqueue::server::bootstrap::{
     get_client_connection, init_hq_server, print_server_info, ServerConfig,
 };
@@ -60,6 +64,10 @@ struct Opts {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Clap)]
+#[clap(about = "HyperQueue Dashboard")]
+struct DashboardOpts {}
+
+#[derive(Clap)]
 enum SubCommand {
     /// Commands for controlling the HyperQueue server
     Server(ServerOpts),
@@ -79,6 +87,8 @@ enum SubCommand {
     Wait(WaitOpts),
     /// Operations with log
     Log(LogOpts),
+    ///Commands for the dashboard
+    Dashboard(DashboardOpts),
 }
 
 // Server CLI options
@@ -391,6 +401,16 @@ async fn command_wait(gsettings: GlobalSettings, opts: WaitOpts) -> anyhow::Resu
     wait_for_job_with_selector(&mut connection, opts.selector_arg.into()).await
 }
 
+///Starts the hq Dashboard
+async fn command_dashboard_start(
+    gsettings: GlobalSettings,
+    opts: DashboardOpts,
+) -> anyhow::Result<()> {
+    let mut dashboard_manager = DashboardManager::new(gsettings)?;
+    dashboard_manager.start_dashboard().await;
+    Ok(())
+}
+
 pub enum ColorPolicy {
     Auto,
     Always,
@@ -487,6 +507,7 @@ async fn main() -> hyperqueue::Result<()> {
         SubCommand::Submit(opts) => command_submit(gsettings, opts).await,
         SubCommand::Cancel(opts) => command_cancel(gsettings, opts).await,
         SubCommand::Resubmit(opts) => command_resubmit(gsettings, opts).await,
+        SubCommand::Dashboard(opts) => command_dashboard_start(gsettings, opts).await,
         SubCommand::Wait(opts) => command_wait(gsettings, opts).await,
         SubCommand::Log(opts) => command_log(gsettings, opts),
     };

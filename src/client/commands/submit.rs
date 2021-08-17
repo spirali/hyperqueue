@@ -243,6 +243,7 @@ pub async fn submit_computation(
     let response = rpc_call!(connection, message, ToClientMessage::SubmitResponse(r) => r).await?;
     let info = response.job.info.clone();
 
+    let job_id = response.job.info.id;
     print_job_detail(
         gsettings,
         response.job,
