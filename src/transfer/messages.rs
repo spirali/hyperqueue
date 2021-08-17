@@ -11,6 +11,7 @@ use bstr::BString;
 use std::path::PathBuf;
 use std::time::Duration;
 use tako::common::resources::ResourceRequest;
+use tako::messages::gateway::{CollectedOverview, OverviewRequest};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TaskBody {
@@ -86,6 +87,7 @@ pub enum FromClientMessage {
     WorkerInfo(WorkerInfoRequest),
     Stats,
     StopWorker(StopWorkerMessage),
+    GetCollectedOverview(OverviewRequest),
     Stop,
 }
 
@@ -132,6 +134,7 @@ pub enum ToClientMessage {
     StatsResponse(StatsResponse),
     StopWorkerResponse(Vec<(WorkerId, StopWorkerResponse)>),
     CancelJobResponse(Vec<(JobId, CancelJobResponse)>),
+    OverviewResponse(CollectedOverview),
     Error(String),
 }
 

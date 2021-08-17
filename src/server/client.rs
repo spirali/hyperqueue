@@ -5,7 +5,8 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use orion::kdf::SecretKey;
 use tako::messages::common::{ProgramDefinition, TaskConfiguration};
 use tako::messages::gateway::{
-    CancelTasks, FromGatewayMessage, NewTasksMessage, StopWorkerRequest, TaskDef, ToGatewayMessage,
+    CancelTasks, FromGatewayMessage, NewTasksMessage, OverviewRequest, StopWorkerRequest, TaskDef,
+    ToGatewayMessage,
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{oneshot, Notify};
@@ -102,6 +103,10 @@ pub async fn client_rpc_loop<
                         compute_job_detail(&state_ref, msg.selector, msg.include_tasks)
                     }
                     FromClientMessage::Stats => compose_server_stats(&state_ref, &tako_ref).await,
+                    FromClientMessage::GetCollectedOverview(_overview_request) => {
+                        //todo: take in overview_request as param
+                        get_collected_overview(&tako_ref).await
+                    }
                 };
                 assert!(tx.send(response).await.is_ok());
             }
@@ -518,4 +523,20 @@ async fn handle_worker_info(state_ref: &StateRef, worker_id: WorkerId) -> ToClie
     let state = state_ref.get();
 
     ToClientMessage::WorkerInfoResponse(state.get_worker(worker_id).map(|w| w.make_info()))
+}
+
+async fn get_collected_overview(tako_ref: &Backend) -> ToClientMessage {
+    let response = tako_ref
+        .send_tako_message(FromGatewayMessage::GetOverview(OverviewRequest {
+            enable_hw_overview: true,
+        }))
+        .await
+        .unwrap();
+    //todo: if let
+    match response {
+        ToGatewayMessage::Overview(collected_overview) => {
+            ToClientMessage::OverviewResponse(collected_overview)
+        }
+        _ => ToClientMessage::Error("overview request failed".to_string()),
+    }
 }
