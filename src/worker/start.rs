@@ -482,9 +482,9 @@ fn gather_configuration(opts: WorkerStartOpts) -> anyhow::Result<WorkerConfigura
         work_dir,
         log_dir,
         heartbeat_interval: opts.heartbeat.into_duration(),
+        hw_state_poll_interval: Some(Duration::from_millis(1000)),
         idle_timeout: opts.idle_timeout.map(|x| x.into_duration()),
         extra,
-        hw_state_poll_interval: None,
     })
 }
 

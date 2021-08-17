@@ -54,6 +54,12 @@ colored = "2"
 byteorder = "1.4"
 smallvec = "1.0"
 
+#dashboard
+tui = { version = "0.14" }
+termion = "1.5"
+indicatif = "0.16.2"
+textwrap = "0.14"
+
 [features]
 # Mode that does not execute tasks, useful for benchmarking HQ overhead
 zero-worker = []
