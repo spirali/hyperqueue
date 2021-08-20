@@ -48,7 +48,7 @@ impl ServerDir {
         self.path.join(path)
     }
 
-    pub fn directory(&self) -> &PathBuf {
+    pub fn directory(&self) -> &Path {
         &self.path
     }
 

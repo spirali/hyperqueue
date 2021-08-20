@@ -13,23 +13,30 @@ use tokio::sync::{oneshot, Notify};
 use crate::client::status::{job_status, task_status, Status};
 use crate::common::arraydef::IntArray;
 use crate::common::env::{HQ_ENTRY, HQ_JOB_ID, HQ_SUBMIT_DIR, HQ_TASK_ID};
+use crate::common::manager::info::ManagerType;
+use crate::common::serverdir::ServerDir;
+
+use crate::server::autoalloc::{PbsHandler, QueueDescriptor, QueueInfo};
 use crate::server::job::{Job, JobState};
 use crate::server::rpc::Backend;
 use crate::server::state::StateRef;
 use crate::stream::server::control::StreamServerControlMessage;
 use crate::transfer::connection::ServerConnection;
 use crate::transfer::messages::{
-    CancelJobResponse, FromClientMessage, JobDetail, JobInfoResponse, JobType, ResubmitRequest,
+    AddQueueRequest, AutoAllocInfoResponse, AutoAllocRequest, AutoAllocResponse, CancelJobResponse,
+    FromClientMessage, JobDetail, JobInfoResponse, JobType, QueueDescriptorData, ResubmitRequest,
     Selector, StatsResponse, StopWorkerResponse, SubmitRequest, SubmitResponse, TaskBody,
     ToClientMessage, WorkerListResponse,
 };
 use crate::{JobId, JobTaskCount, JobTaskId, WorkerId};
 use bstr::BString;
+
 use std::path::Path;
 
 pub async fn handle_client_connections(
     state_ref: StateRef,
     tako_ref: Backend,
+    server_dir: ServerDir,
     listener: TcpListener,
     end_flag: Rc<Notify>,
     key: Arc<SecretKey>,
@@ -39,8 +46,12 @@ pub async fn handle_client_connections(
         let tako_ref = tako_ref.clone();
         let end_flag = end_flag.clone();
         let key = key.clone();
+        let server_dir = server_dir.clone();
+
         tokio::task::spawn_local(async move {
-            if let Err(e) = handle_client(connection, state_ref, tako_ref, end_flag, key).await {
+            if let Err(e) =
+                handle_client(connection, server_dir, state_ref, tako_ref, end_flag, key).await
+            {
                 log::error!("Client error: {}", e);
             }
         });
@@ -49,6 +60,7 @@ pub async fn handle_client_connections(
 
 async fn handle_client(
     socket: TcpStream,
+    server_dir: ServerDir,
     state_ref: StateRef,
     tako_ref: Backend,
     end_flag: Rc<Notify>,
@@ -58,7 +70,7 @@ async fn handle_client(
     let socket = ServerConnection::accept_client(socket, key).await?;
     let (tx, rx) = socket.split();
 
-    client_rpc_loop(tx, rx, state_ref, tako_ref, end_flag).await;
+    client_rpc_loop(tx, rx, server_dir, state_ref, tako_ref, end_flag).await;
     log::debug!("Client connection ended");
     Ok(())
 }
@@ -69,6 +81,7 @@ pub async fn client_rpc_loop<
 >(
     mut tx: Tx,
     mut rx: Rx,
+    server_dir: ServerDir,
     state_ref: StateRef,
     tako_ref: Backend,
     end_flag: Rc<Notify>,
@@ -102,6 +115,9 @@ pub async fn client_rpc_loop<
                         compute_job_detail(&state_ref, msg.selector, msg.include_tasks)
                     }
                     FromClientMessage::Stats => compose_server_stats(&state_ref, &tako_ref).await,
+                    FromClientMessage::AutoAlloc(msg) => {
+                        handle_autoalloc_message(&server_dir, &state_ref, msg).await
+                    }
                 };
                 assert!(tx.send(response).await.is_ok());
             }
@@ -117,6 +133,95 @@ pub async fn client_rpc_loop<
                 return;
             }
         }
+    }
+}
+
+async fn handle_autoalloc_message(
+    server_dir: &ServerDir,
+    state_ref: &StateRef,
+    request: AutoAllocRequest,
+) -> ToClientMessage {
+    match request {
+        AutoAllocRequest::Info => {
+            let state = state_ref.get();
+            let autoalloc = state.get_autoalloc_state().get();
+            let refresh_interval = autoalloc.refresh_interval();
+            ToClientMessage::AutoAllocResponse(AutoAllocResponse::Info(AutoAllocInfoResponse {
+                refresh_interval,
+                descriptors: autoalloc
+                    .descriptors()
+                    .map(|(name, descriptor)| {
+                        (
+                            name.to_string(),
+                            QueueDescriptorData {
+                                info: descriptor.descriptor.info().clone(),
+                            },
+                        )
+                    })
+                    .collect(),
+            }))
+        }
+        AutoAllocRequest::AddQueue(params) => create_queue(server_dir, state_ref, params),
+        AutoAllocRequest::Events { descriptor } => get_event_log(state_ref, descriptor),
+        AutoAllocRequest::Allocations { descriptor } => get_allocations(state_ref, descriptor),
+    }
+}
+
+fn get_allocations(state_ref: &StateRef, descriptor: String) -> ToClientMessage {
+    let state = state_ref.get();
+    let autoalloc = state.get_autoalloc_state().get();
+
+    match autoalloc.get_descriptor(&descriptor) {
+        Some(descriptor) => ToClientMessage::AutoAllocResponse(AutoAllocResponse::Allocations(
+            descriptor.all_allocations().cloned().collect(),
+        )),
+        None => ToClientMessage::Error(format!("Descriptor {} not found", descriptor)),
+    }
+}
+
+fn get_event_log(state_ref: &StateRef, descriptor: String) -> ToClientMessage {
+    let state = state_ref.get();
+    let autoalloc = state.get_autoalloc_state().get();
+
+    match autoalloc.get_descriptor(&descriptor) {
+        Some(descriptor) => ToClientMessage::AutoAllocResponse(AutoAllocResponse::Events(
+            descriptor.get_events().iter().cloned().collect(),
+        )),
+        None => ToClientMessage::Error(format!("Descriptor {} not found", descriptor)),
+    }
+}
+
+fn create_queue(
+    server_dir: &ServerDir,
+    state_ref: &StateRef,
+    request: AddQueueRequest,
+) -> ToClientMessage {
+    let result = match request {
+        AddQueueRequest::Pbs(params) => {
+            let state = state_ref.get();
+            let mut autoalloc = state.get_autoalloc_state().get_mut();
+
+            let queue_info = QueueInfo::new(
+                params.queue.clone(),
+                params.max_workers_per_alloc,
+                params.target_worker_count,
+                params.timelimit,
+            );
+            let handler = Box::new(PbsHandler::new(
+                params.queue,
+                params.timelimit,
+                params.name.clone(),
+                server_dir.directory().to_path_buf(),
+            ));
+            let descriptor = QueueDescriptor::new(ManagerType::Pbs, queue_info, handler);
+
+            autoalloc.add_descriptor(params.name, descriptor)
+        }
+    };
+
+    match result {
+        Ok(_) => ToClientMessage::AutoAllocResponse(AutoAllocResponse::Ok),
+        Err(err) => ToClientMessage::Error(format!("Could not create autoalloc queue: {}", err)),
     }
 }
 

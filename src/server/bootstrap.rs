@@ -121,7 +121,7 @@ async fn initialize_server(
         tako_secret_key.clone(),
     );
 
-    ServerDir::create(server_directory, &record)?;
+    let server_dir = ServerDir::create(server_directory, &record)?;
     print_access_record(gsettings, server_directory, &record);
 
     let stop_notify = Rc::new(Notify::new());
@@ -141,6 +141,7 @@ async fn initialize_server(
             _ = crate::server::client::handle_client_connections(
                 state_ref.clone(),
                 tako_server,
+                server_dir,
                 client_listener,
                 stop_cloned,
                 key

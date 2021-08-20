@@ -1,3 +1,4 @@
+pub mod autoalloc;
 pub mod jobs;
 pub mod log;
 pub mod stats;

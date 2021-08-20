@@ -5,12 +5,29 @@ use tako::messages::common::{ProgramDefinition, WorkerConfiguration};
 
 use crate::client::status::Status;
 use crate::common::arraydef::IntArray;
+use crate::server::autoalloc::{Allocation, AllocationEventHolder, QueueInfo};
 use crate::server::job::{JobTaskCounters, JobTaskInfo};
-use crate::{JobId, JobTaskCount, JobTaskId, WorkerId};
+use crate::{JobId, JobTaskCount, JobTaskId, Map, WorkerId};
 use bstr::BString;
 use std::path::PathBuf;
 use std::time::Duration;
 use tako::common::resources::ResourceRequest;
+
+// Messages client -> server
+#[derive(Serialize, Deserialize, Debug)]
+pub enum FromClientMessage {
+    Submit(SubmitRequest),
+    Resubmit(ResubmitRequest),
+    Cancel(CancelRequest),
+    JobDetail(JobDetailRequest),
+    JobInfo(JobInfoRequest),
+    WorkerList,
+    WorkerInfo(WorkerInfoRequest),
+    Stats,
+    StopWorker(StopWorkerMessage),
+    Stop,
+    AutoAlloc(AutoAllocRequest),
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TaskBody {
@@ -76,17 +93,46 @@ pub struct StopWorkerMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum FromClientMessage {
-    Submit(SubmitRequest),
-    Resubmit(ResubmitRequest),
-    Cancel(CancelRequest),
-    JobDetail(JobDetailRequest),
-    JobInfo(JobInfoRequest),
-    WorkerList,
-    WorkerInfo(WorkerInfoRequest),
-    Stats,
-    StopWorker(StopWorkerMessage),
-    Stop,
+pub struct WorkerInfoRequest {
+    pub worker_id: WorkerId,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum AutoAllocRequest {
+    Info,
+    Events { descriptor: String },
+    Allocations { descriptor: String },
+    AddQueue(AddQueueRequest),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum AddQueueRequest {
+    Pbs(AddQueueParams),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AddQueueParams {
+    pub name: String,
+    pub max_workers_per_alloc: u32,
+    pub target_worker_count: u32,
+    pub queue: String,
+    pub timelimit: Option<Duration>,
+}
+
+// Messages server -> client
+#[allow(clippy::large_enum_variant)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ToClientMessage {
+    JobInfoResponse(JobInfoResponse),
+    JobDetailResponse(Vec<(JobId, Option<JobDetail>)>),
+    SubmitResponse(SubmitResponse),
+    WorkerListResponse(WorkerListResponse),
+    WorkerInfoResponse(Option<WorkerInfo>),
+    StatsResponse(StatsResponse),
+    StopWorkerResponse(Vec<(WorkerId, StopWorkerResponse)>),
+    CancelJobResponse(Vec<(JobId, CancelJobResponse)>),
+    AutoAllocResponse(AutoAllocResponse),
+    Error(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -119,20 +165,6 @@ pub struct StatsResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SubmitResponse {
     pub job: JobDetail,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ToClientMessage {
-    JobInfoResponse(JobInfoResponse),
-    JobDetailResponse(Vec<(JobId, Option<JobDetail>)>),
-    SubmitResponse(SubmitResponse),
-    WorkerListResponse(WorkerListResponse),
-    WorkerInfoResponse(Option<WorkerInfo>),
-    StatsResponse(StatsResponse),
-    StopWorkerResponse(Vec<(WorkerId, StopWorkerResponse)>),
-    CancelJobResponse(Vec<(JobId, CancelJobResponse)>),
-    Error(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -207,11 +239,25 @@ pub struct WorkerListResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct WorkerInfoRequest {
-    pub worker_id: WorkerId,
+pub struct WorkerInfoResponse {
+    pub worker: WorkerInfo,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct WorkerInfoResponse {
-    pub worker: WorkerInfo,
+pub enum AutoAllocResponse {
+    Ok,
+    Events(Vec<AllocationEventHolder>),
+    Allocations(Vec<Allocation>),
+    Info(AutoAllocInfoResponse),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AutoAllocInfoResponse {
+    pub refresh_interval: Duration,
+    pub descriptors: Map<String, QueueDescriptorData>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct QueueDescriptorData {
+    pub info: QueueInfo,
 }

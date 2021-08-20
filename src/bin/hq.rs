@@ -4,6 +4,7 @@ use std::str::FromStr;
 use clap::{Clap, ValueHint};
 use cli_table::ColorChoice;
 
+use hyperqueue::client::commands::autoalloc::{command_autoalloc, AutoAllocOpts};
 use hyperqueue::client::commands::jobs::{cancel_job, output_job_detail, output_job_list};
 use hyperqueue::client::commands::log::{command_log, LogOpts};
 use hyperqueue::client::commands::stats::print_server_stats;
@@ -33,7 +34,6 @@ use hyperqueue::WorkerId;
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 // Common CLI options
-
 #[derive(Clap)]
 struct CommonOpts {
     /// Path to a directory that stores HyperQueue access files
@@ -79,6 +79,8 @@ enum SubCommand {
     Wait(WaitOpts),
     /// Operations with log
     Log(LogOpts),
+    /// Auto allocation management
+    AutoAlloc(AutoAllocOpts),
 }
 
 // Server CLI options
@@ -281,9 +283,7 @@ async fn command_server_info(
 
 async fn command_job_list(gsettings: GlobalSettings, opts: JobListOpts) -> anyhow::Result<()> {
     let mut connection = get_client_connection(gsettings.server_directory()).await?;
-    output_job_list(&gsettings, &mut connection, opts.job_filters)
-        .await
-        .map_err(|e| e.into())
+    output_job_list(&gsettings, &mut connection, opts.job_filters).await
 }
 
 async fn command_job_detail(gsettings: GlobalSettings, opts: JobDetailOpts) -> anyhow::Result<()> {
@@ -300,7 +300,6 @@ async fn command_job_detail(gsettings: GlobalSettings, opts: JobDetailOpts) -> a
         opts.tasks,
     )
     .await
-    .map_err(|e| e.into())
 }
 
 async fn command_submit(gsettings: GlobalSettings, opts: SubmitOpts) -> anyhow::Result<()> {
@@ -311,9 +310,7 @@ async fn command_submit(gsettings: GlobalSettings, opts: SubmitOpts) -> anyhow::
 async fn command_cancel(gsettings: GlobalSettings, opts: CancelOpts) -> anyhow::Result<()> {
     let mut connection = get_client_connection(gsettings.server_directory()).await?;
 
-    cancel_job(&gsettings, &mut connection, opts.selector_arg.into())
-        .await
-        .map_err(|e| e.into())
+    cancel_job(&gsettings, &mut connection, opts.selector_arg.into()).await
 }
 
 async fn command_worker_start(
@@ -495,6 +492,7 @@ async fn main() -> hyperqueue::Result<()> {
         SubCommand::Resubmit(opts) => command_resubmit(gsettings, opts).await,
         SubCommand::Wait(opts) => command_wait(gsettings, opts).await,
         SubCommand::Log(opts) => command_log(gsettings, opts),
+        SubCommand::AutoAlloc(opts) => command_autoalloc(gsettings, opts).await,
     };
     if let Err(e) = result {
         eprintln!("{:?}", e);

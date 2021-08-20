@@ -52,8 +52,7 @@ nom = "6.2"
 bstr = { version = "0.2", features = ["serde1"] }
 colored = "2"
 byteorder = "1.4"
-smallvec = "1.0"
-async-trait = "0.1.50"
+smallvec = "1.6.1"
 
 [features]
 # Mode that does not execute tasks, useful for benchmarking HQ overhead

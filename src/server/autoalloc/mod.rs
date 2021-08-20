@@ -4,8 +4,6 @@
 //!
 //! The term `allocation` represents a PBS/Slurm job in this module, to distinguish itself from
 //! HQ jobs.
-use thiserror::Error;
-
 pub use process::autoalloc_process;
 pub use state::AutoAllocState;
 
@@ -13,12 +11,8 @@ mod descriptor;
 mod process;
 mod state;
 
-#[derive(Debug, Error, Clone)]
-pub enum AutoAllocError {
-    #[error("Descriptor named {0} already exists")]
-    DescriptorAlreadyExists(String),
-    #[error("{0}")]
-    Custom(String),
-}
+pub type AutoAllocResult<T> = anyhow::Result<T>;
 
-pub type AutoAllocResult<T> = Result<T, AutoAllocError>;
+pub use descriptor::pbs::PbsHandler;
+pub use descriptor::{QueueDescriptor, QueueInfo};
+pub use state::{Allocation, AllocationEvent, AllocationEventHolder, AllocationStatus};

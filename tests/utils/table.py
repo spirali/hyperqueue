@@ -29,7 +29,7 @@ class Table:
     def check_value_row(self, key: str, value: str):
         row = self.get_row_value(key)
         if row is None:
-            raise Exception(f"Key {key} not found in\n{self}")
+            raise Exception(f"Key `{key!r}` not found in\n{self}")
         assert_equals(row, value)
 
     def get_column_value(self, key: str) -> Optional[List[str]]:
@@ -46,7 +46,7 @@ class Table:
     def check_value_column(self, key: str, index: int, value: str):
         column = self.get_column_value(key)
         if not column:
-            raise Exception(f"Value for key {key} not found in\n{self}")
+            raise Exception(f"Value for key `{key!r}` not found in\n{self}")
         row = column[index]
         assert_equals(row, value)
 

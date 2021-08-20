@@ -35,7 +35,7 @@ pub async fn output_job_list(
     gsettings: &GlobalSettings,
     connection: &mut ClientConnection,
     job_filters: Vec<Status>,
-) -> crate::Result<()> {
+) -> anyhow::Result<()> {
     let message = FromClientMessage::JobInfo(JobInfoRequest {
         selector: Selector::All,
     });
@@ -57,7 +57,7 @@ pub async fn output_job_detail(
     connection: &mut ClientConnection,
     selector: Selector,
     show_tasks: bool,
-) -> crate::Result<()> {
+) -> anyhow::Result<()> {
     if matches!(selector, Selector::All) {
         log::warn!("Job detail doesn't support --all specifier, did you mean: job list?");
         return Ok(());
@@ -90,7 +90,7 @@ pub async fn cancel_job(
     _gsettings: &GlobalSettings,
     connection: &mut ClientConnection,
     selector: Selector,
-) -> crate::Result<()> {
+) -> anyhow::Result<()> {
     let mut responses = rpc_call!(connection, FromClientMessage::Cancel(CancelRequest {
          selector,
     }), ToClientMessage::CancelJobResponse(r) => r)
