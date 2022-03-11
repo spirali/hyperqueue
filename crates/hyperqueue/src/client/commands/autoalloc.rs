@@ -219,8 +219,8 @@ async fn dry_run_command(mut connection: ClientConnection, opts: DryRunOpts) -> 
         DryRunCommand::Slurm(params) => (ManagerType::Slurm, args_to_params(params)),
     };
     let message = FromClientMessage::AutoAlloc(AutoAllocRequest::DryRun {
-        manager,
-        parameters,
+        manager: manager.clone(),
+        parameters: parameters.clone(),
     });
 
     rpc_call!(connection, message,
@@ -248,8 +248,8 @@ async fn add_queue(mut connection: ClientConnection, opts: AddQueueOpts) -> anyh
     };
 
     let message = FromClientMessage::AutoAlloc(AutoAllocRequest::AddQueue {
-        manager,
-        parameters,
+        manager: manager.clone(),
+        parameters: parameters.clone(),
         dry_run,
     });
 
@@ -260,8 +260,8 @@ async fn add_queue(mut connection: ClientConnection, opts: AddQueueOpts) -> anyh
 
     if dry_run {
         log::info!(
-            "A trial allocation was submitted successfully. It was immediately canceled to avoid \
-wasting resources."
+            "A trial allocation was submitted successfully. \
+            It was immediately canceled to avoid wasting resources."
         );
     }
 
