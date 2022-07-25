@@ -1,7 +1,10 @@
 use std::path::PathBuf;
+use std::thread;
 use std::time::Duration;
 
 use clap::Parser;
+use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::iterator::Signals;
 use tako::resources::ResourceDescriptor;
 use tako::Map;
 use tempdir::TempDir;
@@ -98,10 +101,58 @@ pub struct WorkerStartOpts {
     pub work_dir: Option<PathBuf>,
 }
 
+/// Create signal hooks that will propagate received signals to the whole process group
+/// of the worker.
+fn prepare_signal_handler() {
+    let mut pgid = nix::unistd::getpgid(None).expect("Cannot get PGID");
+    let pid = nix::unistd::getpid();
+
+    // We want to have a private process group.
+    // If we are not already the leader of one, create a new process group.
+    if pgid != pid {
+        pgid = nix::unistd::setsid().expect("Cannot set SID");
+    }
+
+    log::debug!(
+        "Worker running with PID: {} and PGID: {}",
+        std::process::id(),
+        pgid,
+    );
+
+    thread::spawn(move || {
+        let mut signals =
+            Signals::new(&[SIGTERM, SIGINT, SIGHUP]).expect("Cannot create signal list");
+
+        // Listen for incoming signals.
+        for signal in signals.forever() {
+            log::info!("Received signal {signal}, forwarding it to my process group");
+
+            // Once a signal is received, re-send it to the whole process group.
+            nix::sys::signal::killpg(
+                pgid,
+                Some(signal.try_into().expect("Unknown signal encountered")),
+            )
+            .unwrap_or_else(|error| {
+                panic!("Could not propagate signal {signal} to children: {error:?}")
+            });
+
+            // And then handle it with the default handler.
+            signal_hook::low_level::emulate_default_handler(signal).unwrap_or_else(|error| {
+                panic!("Could not execute default handler for signal {signal}: {error:?}")
+            });
+            // Finally, we need to terminate ourselves, otherwise we would create an endless
+            // recursion of signals, since we also re-send the signal to ourselves.
+            std::process::exit(1);
+        }
+    });
+}
+
 pub async fn start_hq_worker(
     gsettings: &GlobalSettings,
     opts: WorkerStartOpts,
 ) -> anyhow::Result<()> {
+    prepare_signal_handler();
+
     let mut configuration = gather_configuration(opts)?;
     finalize_configuration(&mut configuration);
 

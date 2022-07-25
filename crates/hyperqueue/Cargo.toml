@@ -51,6 +51,8 @@ flate2 = { version = "1.0.23", features = ["default"] }
 psutil = "3.2.1"
 rand = { version = "0.8", features = ["small_rng"] }
 chumsky = "0.8.0"
+nix = { version = "0.24.1", features = ["process"] }
+signal-hook = "0.3.14"
 
 # Tako
 tako = { path = "../tako" }

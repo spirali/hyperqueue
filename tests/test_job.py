@@ -1,16 +1,20 @@
 import os
+import signal
 import time
 from datetime import datetime
 from os.path import isdir, isfile, join
 from pathlib import Path
+from typing import List
 
+import psutil
 import pytest
 
 from .conftest import HqEnv
 from .utils import wait_for_job_state
-from .utils.io import check_file_contents
+from .utils.io import check_file_contents, read_file
 from .utils.job import default_task_output, list_jobs
 from .utils.table import parse_multiline_cell
+from .utils.wait import wait_until
 
 
 def test_job_submit(hq_env: HqEnv):
@@ -1260,38 +1264,96 @@ def test_zero_custom_error_message(hq_env: HqEnv):
         table.get_column_value("Error")[0]
         == "Error: Task created an error file, but it is empty"
     )
-    # print(table)
 
 
-def test_crashing_job_by_status(hq_env: HqEnv):
+def test_cancel_tasks_that_crash_worker(hq_env: HqEnv):
     hq_env.start_server()
-    # Crashing tasks threshold is 5
-    hq_env.command(["submit", "sleep", "10"])
-    for i in range(5):
-        hq_env.start_worker()
-        wait_for_job_state(hq_env, 1, "RUNNING")
-        hq_env.kill_worker(i + 1)
-    table = list_jobs(hq_env)
-    table.check_column_value("State", 0, "CANCELED")
+    hq_env.command(["submit", "--", "bash", "-c", "sleep 10; echo done > foo.txt"])
 
-
-def test_crashing_job_by_files(hq_env: HqEnv):
-    hq_env.start_server()
-    hq_env.command(["submit", "--", "bash", "-c", "sleep 1; echo done > xyz.txt"])
-
-    # Crashing tasks threshold is 5
+    # A task is canceled once its executing worker crashes at least five times.
     for i in range(5):
         hq_env.start_worker()
         wait_for_job_state(hq_env, 1, "RUNNING")
         hq_env.kill_worker(i + 1)
 
-    hq_env.start_worker()
     wait_for_job_state(hq_env, 1, "CANCELED")
-    time.sleep(2)
+    assert not os.path.isfile("foo.txt")
 
-    table = list_jobs(hq_env)
-    table.check_column_value("State", 0, "CANCELED")
-    try:
-        check_file_contents("xyz.txt", "done\n")
-    except Exception as e:
-        assert "No such file or directory: 'xyz.txt'" in str(e)
+
+def python(command: str) -> List[str]:
+    """
+    Returns commands that will run the specified command as a Python script.
+    """
+    return ["python3", "-c", command]
+
+
+def test_terminate_process_when_worker_dies(hq_env: HqEnv):
+    hq_env.start_server()
+    worker = hq_env.start_worker()
+
+    hq_env.command(
+        [
+            "submit",
+            "--",
+            *python(
+                """
+import os
+import sys
+import time
+
+print(os.getpid(), flush=True)
+time.sleep(3600)
+"""
+            ),
+        ]
+    )
+    wait_for_job_state(hq_env, 1, "RUNNING")
+    wait_until(lambda: read_file(default_task_output()) != "")
+
+    worker.send_signal(signal.SIGTERM)
+    worker.wait()
+    hq_env.check_process_exited(worker, expected_code="error")
+
+    time.sleep(0.5)
+    pid = int(read_file(default_task_output()))
+
+    assert not psutil.pid_exists(pid)
+
+
+def test_terminate_process_children_when_worker_dies(hq_env: HqEnv):
+    hq_env.start_server()
+    worker = hq_env.start_worker()
+
+    hq_env.command(
+        [
+            "submit",
+            "--",
+            *python(
+                """
+import os
+import sys
+import time
+
+print(os.getpid(), flush=True)
+
+pid = os.fork()
+if pid > 0:
+    print(pid, flush=True)
+time.sleep(3600)
+"""
+            ),
+        ]
+    )
+    wait_for_job_state(hq_env, 1, "RUNNING")
+    wait_until(lambda: len(read_file(default_task_output()).splitlines()) == 2)
+
+    worker.send_signal(signal.SIGTERM)
+    worker.wait()
+    hq_env.check_process_exited(worker, expected_code="error")
+
+    time.sleep(0.5)
+    pids = [int(pid) for pid in read_file(default_task_output()).splitlines()]
+
+    parent, child = pids
+    assert not psutil.pid_exists(parent)
+    assert not psutil.pid_exists(child)

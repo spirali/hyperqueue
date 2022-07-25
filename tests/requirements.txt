@@ -6,3 +6,4 @@ isort==5.10.1
 iso8601==1.0.2
 schema==0.7.5
 maturin==0.12.6
+psutil==5.8.0

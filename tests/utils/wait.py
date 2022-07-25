@@ -1,7 +1,7 @@
 import time
 from typing import List, Union
 
-DEFAULT_TIMEOUT = 5
+DEFAULT_TIMEOUT = 10
 
 
 class TimeoutException(BaseException):

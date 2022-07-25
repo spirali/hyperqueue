@@ -851,6 +851,7 @@ dependencies = [
  "insta",
  "jemallocator",
  "log",
+ "nix 0.24.2",
  "nom",
  "nom-supreme",
  "num_cpus",
@@ -863,6 +864,7 @@ dependencies = [
  "serde-tuple-vec-map",
  "serde_bytes",
  "serde_json",
+ "signal-hook",
  "smallvec",
  "tako",
  "tempdir",
@@ -1129,6 +1131,18 @@ checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
 dependencies = [
  "bitflags",
  "cc",
+ "cfg-if",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
+dependencies = [
+ "bitflags",
  "cfg-if",
  "libc",
  "memoffset",
@@ -1414,7 +1428,7 @@ dependencies = [
  "derive_more",
  "glob",
  "mach",
- "nix",
+ "nix 0.23.1",
  "num_cpus",
  "once_cell",
  "platforms",
@@ -1835,6 +1849,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "signal-hook"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a253b5e89e2698464fc26b545c9edceb338e18a89effeeecfea192c3025be29d"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
 ]
 
 [[package]]
