@@ -714,11 +714,10 @@ impl Output for CliOutput {
                             task_desc,
                         } if ids.contains(task_id.as_num()) => Some((task_desc, [].as_slice())),
                         JobTaskDescription::Array { .. } => None,
-                        JobTaskDescription::Graph { tasks } => {
-                            tasks.iter().find(|t| t.id == *task_id).map(|task_dep| {
-                                (&task_dep.task_desc, task_dep.dependencies.as_slice())
-                            })
-                        }
+                        JobTaskDescription::Graph { tasks } => tasks
+                            .iter()
+                            .find(|t| t.id == *task_id)
+                            .map(|task_dep| (&task_dep.task_desc, task_dep.task_deps.as_slice())),
                     }) {
                 x
             } else {

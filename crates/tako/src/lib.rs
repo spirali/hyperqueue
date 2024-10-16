@@ -61,3 +61,9 @@ pub mod worker {
 pub mod task {
     pub type SerializedTaskContext = Vec<u8>;
 }
+
+pub mod datasrv {
+    pub use crate::internal::datasrv::client::DataClient;
+    pub use crate::internal::datasrv::dataobj::DataId;
+    pub use crate::internal::datasrv::dataobj::DataObjectId;
+}

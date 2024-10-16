@@ -289,12 +289,6 @@ pub(crate) fn on_task_finished(
                 }
             }
 
-            let mut placement = Set::default();
-
-            if task.configuration.n_outputs > 0 {
-                placement.insert(worker_id);
-            }
-
             task.state = TaskRuntimeState::Finished(FinishInfo {});
             comm.ask_for_scheduling();
             comm.send_client_task_finished(task.id);

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use crate::gateway::TaskDataFlags;
 use crate::hwstats::WorkerHwStateMessage;
 use crate::internal::common::resources::{ResourceAmount, ResourceIndex};
 use crate::internal::messages::common::TaskFailInfo;
@@ -29,9 +30,9 @@ pub struct ComputeTaskMsg {
 
     pub resources: crate::internal::common::resources::ResourceRequestVariants,
     pub time_limit: Option<Duration>,
-    pub n_outputs: u32,
-
     pub node_list: Vec<WorkerId>,
+
+    pub data_flags: TaskDataFlags,
 
     #[serde(with = "serde_bytes")]
     pub body: Box<[u8]>,

@@ -18,6 +18,11 @@ impl From<serde_json::error::Error> for DsError {
         Self::SerializationError(e.to_string())
     }
 }
+impl From<bincode::Error> for DsError {
+    fn from(e: bincode::Error) -> Self {
+        Self::SerializationError(e.to_string())
+    }
+}
 impl From<psutil::Error> for DsError {
     fn from(e: psutil::Error) -> Self {
         Self::GenericError(e.to_string())

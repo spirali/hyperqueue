@@ -1,16 +1,13 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-
-use orion::aead::SecretKey;
-use rand::rngs::SmallRng;
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
 
 use crate::internal::common::resources::map::ResourceMap;
 use crate::internal::common::resources::Allocation;
 use crate::internal::common::stablemap::StableMap;
 use crate::internal::common::{Map, Set, WrappedRcRefCell};
+use crate::internal::datasrv::DataNodeRef;
 use crate::internal::messages::common::TaskFailInfo;
 use crate::internal::messages::worker::{
     FromWorkerMessage, NewWorkerMsg, StealResponse, TaskFailedMsg, TaskFinishedMsg,
@@ -18,6 +15,7 @@ use crate::internal::messages::worker::{
 use crate::internal::server::workerload::WorkerResources;
 use crate::internal::worker::comm::WorkerComm;
 use crate::internal::worker::configuration::WorkerConfiguration;
+use crate::internal::worker::localcomm::LocalCommState;
 use crate::internal::worker::resources::allocator::ResourceAllocator;
 use crate::internal::worker::resources::map::ResourceLabelMap;
 use crate::internal::worker::rqueue::ResourceWaitQueue;
@@ -26,6 +24,10 @@ use crate::internal::worker::task_comm::RunningTaskComm;
 use crate::launcher::TaskLauncher;
 use crate::TaskId;
 use crate::WorkerId;
+use orion::aead::SecretKey;
+use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
 
 pub type TaskMap = StableMap<TaskId, Task>;
 
@@ -49,6 +51,9 @@ pub struct WorkerState {
 
     pub(crate) reservation: bool, // If true, idle timeout is blocked
     pub(crate) last_task_finish_time: Instant,
+
+    pub(crate) lc_state: RefCell<LocalCommState>,
+    pub(crate) data_node_ref: DataNodeRef,
 
     resource_map: ResourceMap,
     resource_label_map: ResourceLabelMap,
@@ -307,7 +312,7 @@ impl WorkerStateRef {
             worker_id,
             configuration,
             task_launcher,
-            //secret_key,
+            server_uid,
             tasks: Default::default(),
             ready_task_queue,
             random: SmallRng::from_entropy(),
@@ -319,7 +324,8 @@ impl WorkerStateRef {
             last_task_finish_time: now,
             reservation: false,
             worker_addresses: Default::default(),
-            server_uid,
+            lc_state: RefCell::new(LocalCommState::new()),
+            data_node_ref: DataNodeRef::new(),
         })
     }
 }

@@ -7,6 +7,7 @@ use std::io::IsTerminal;
 use std::panic::PanicHookInfo;
 
 use hyperqueue::client::commands::autoalloc::command_autoalloc;
+use hyperqueue::client::commands::data::command_task_data;
 use hyperqueue::client::commands::job::{
     cancel_job, close_job, forget_job, output_job_cat, output_job_detail, output_job_list,
     output_job_summary, JobCancelOpts, JobCatOpts, JobCloseOpts, JobForgetOpts, JobInfoOpts,
@@ -488,6 +489,7 @@ async fn main() -> hyperqueue::Result<()> {
         SubCommand::Task(TaskOpts {
             subcmd: TaskCommand::Info(opts),
         }) => command_task_info(&gsettings, opts).await,
+        SubCommand::TaskData(opts) => command_task_data(&gsettings, opts).await,
         #[cfg(feature = "dashboard")]
         SubCommand::Dashboard(opts) => command_dashboard_start(&gsettings, opts).await,
         SubCommand::OutputLog(opts) => command_reader(&gsettings, opts),

@@ -3,14 +3,16 @@ use crate::common::arraydef::IntArray;
 use crate::common::arrayparser::parse_array;
 use crate::common::error::HqError;
 use crate::common::utils::time::parse_human_time;
-use crate::{JobTaskCount, JobTaskId};
+use crate::{JobDataObjectId, JobTaskCount, JobTaskId};
 use bstr::BString;
 use serde::de::MapAccess;
 use serde::{Deserialize, Deserializer};
 use smallvec::SmallVec;
 use std::path::PathBuf;
 use std::time::Duration;
-use tako::gateway::{ResourceRequest, ResourceRequestEntries, ResourceRequestEntry};
+use tako::datasrv::DataObjectId;
+use tako::gateway::{ResourceRequest, ResourceRequestEntries, ResourceRequestEntry, TaskDataFlags};
+use tako::internal::server::task::TaskFlags;
 use tako::program::FileOnCloseBehavior;
 use tako::resources::{AllocationRequest, NumOfNodes, ResourceAmount};
 use tako::{Map, Priority};
@@ -206,7 +208,6 @@ pub struct TaskConfigDef {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
 pub struct TaskDef {
     pub id: Option<JobTaskId>,
 
@@ -215,6 +216,12 @@ pub struct TaskDef {
 
     #[serde(default)]
     pub deps: Vec<JobTaskId>,
+
+    #[serde(default)]
+    pub data_deps: Vec<JobDataObjectId>,
+
+    #[serde(default)]
+    pub keep_outputs: bool,
 }
 
 fn deserialize_array_opt<'de, D>(deserializer: D) -> Result<Option<IntArray>, D::Error>

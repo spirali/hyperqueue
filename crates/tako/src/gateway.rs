@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::internal::common::error::DsError;
+use crate::internal::datasrv::dataobj::DataObjectId;
 use crate::internal::messages::common::TaskFailInfo;
 use crate::internal::messages::worker::WorkerOverview;
 use crate::internal::worker::configuration::WorkerConfiguration;
@@ -92,22 +93,27 @@ impl ResourceRequestVariants {
     }
 }
 
+bitflags::bitflags! {
+    #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct TaskDataFlags: u32 {
+        const KEEP_ALL_OUTPUTS = 0b00000001;
+    }
+}
+
 /// Task data that is often shared by multiple tasks.
-/// It is send out-of-band in NewTasksMessage to save bandwidth and allocations.
+/// It is sent out-of-band in NewTasksMessage to save bandwidth and allocations.
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SharedTaskConfiguration {
     pub resources: ResourceRequestVariants,
 
-    #[serde(default)]
-    pub n_outputs: u32,
-
-    #[serde(default)]
     pub time_limit: Option<Duration>,
 
-    #[serde(default)]
     pub priority: Priority,
 
     pub crash_limit: u32,
+
+    pub data_flags: TaskDataFlags,
 }
 
 /// Task data that is unique for each task.
@@ -118,6 +124,8 @@ pub struct TaskConfiguration {
     pub shared_data_index: u32,
 
     pub task_deps: ThinVec<TaskId>,
+
+    pub dataobj_deps: ThinVec<DataObjectId>,
 
     /// Opaque data that is passed by the gateway user to task launchers.
     #[serde(with = "serde_bytes")]

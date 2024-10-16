@@ -21,7 +21,9 @@ use pyo3::{IntoPy, PyAny, PyResult, Python};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tako::gateway::{ResourceRequestEntries, ResourceRequestEntry, ResourceRequestVariants};
+use tako::gateway::{
+    ResourceRequestEntries, ResourceRequestEntry, ResourceRequestVariants, TaskDataFlags,
+};
 use tako::program::{FileOnCloseBehavior, ProgramDefinition, StdioDef};
 use tako::resources::{AllocationRequest, NumOfNodes, ResourceAmount};
 
@@ -141,11 +143,13 @@ fn build_tasks(
         .map(|mut task| {
             Ok(TaskWithDependencies {
                 id: task.id.into(),
-                dependencies: std::mem::take(&mut task.dependencies)
+                task_deps: std::mem::take(&mut task.dependencies)
                     .into_iter()
                     .map(|id| id.into())
                     .collect(),
+                dataobj_deps: vec![],
                 task_desc: build_task_desc(task, submit_dir)?,
+                data_flags: TaskDataFlags::empty(),
             })
         })
         .collect()

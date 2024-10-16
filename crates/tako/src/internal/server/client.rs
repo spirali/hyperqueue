@@ -43,10 +43,10 @@ fn create_task_configuration(
 
     TaskConfiguration {
         resources,
-        n_outputs: msg.n_outputs,
         time_limit: msg.time_limit,
         user_priority: msg.priority,
         crash_limit: msg.crash_limit,
+        data_flags: msg.data_flags,
     }
 }
 
@@ -167,10 +167,7 @@ fn handle_new_tasks(
     let configurations: Vec<_> = msg
         .shared_data
         .into_iter()
-        .map(|c| {
-            assert_eq!(c.n_outputs, 0); // TODO: Implementation for more outputs
-            Rc::new(create_task_configuration(core, c))
-        })
+        .map(|c| Rc::new(create_task_configuration(core, c)))
         .collect();
 
     for cfg in &configurations {
@@ -189,7 +186,13 @@ fn handle_new_tasks(
             return Some(format!("Invalid configuration index {idx}"));
         }
         let conf = &configurations[idx];
-        let task = Task::new(task.id, task.task_deps, conf.clone(), task.body);
+        let task = Task::new(
+            task.id,
+            task.task_deps,
+            task.dataobj_deps,
+            conf.clone(),
+            task.body,
+        );
         tasks.push(task);
     }
     if !msg.adjust_instance_id.is_empty() {

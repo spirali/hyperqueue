@@ -1,4 +1,5 @@
 use super::resources::ResBuilder;
+use crate::datasrv::{DataId, DataObjectId};
 use crate::internal::common::resources::{
     NumOfNodes, ResourceAmount, ResourceId, ResourceRequestVariants,
 };
@@ -8,10 +9,12 @@ use crate::resources::ResourceRequest;
 use crate::{Priority, TaskId};
 use smallvec::SmallVec;
 use std::rc::Rc;
+use thin_vec::ThinVec;
 
 pub struct TaskBuilder {
     id: TaskId,
-    task_deps: Vec<TaskId>,
+    task_deps: ThinVec<TaskId>,
+    data_deps: ThinVec<DataObjectId>,
     n_outputs: u32,
     finished_resources: Vec<ResourceRequest>,
     resources_builder: ResBuilder,
@@ -24,6 +27,7 @@ impl TaskBuilder {
         TaskBuilder {
             id: id.into(),
             task_deps: Default::default(),
+            data_deps: Default::default(),
             n_outputs: 0,
             finished_resources: vec![],
             resources_builder: Default::default(),
@@ -44,6 +48,11 @@ impl TaskBuilder {
 
     pub fn task_deps(mut self, deps: &[&Task]) -> TaskBuilder {
         self.task_deps = deps.iter().map(|&tr| tr.id).collect();
+        self
+    }
+
+    pub fn data_dep(mut self, task: &Task, data_id: DataId) -> TaskBuilder {
+        self.data_deps.push(DataObjectId::new(task.id, data_id));
         self
     }
 
@@ -98,7 +107,8 @@ impl TaskBuilder {
         let resources = ResourceRequestVariants::new(resources);
         Task::new(
             self.id,
-            self.task_deps.into_iter().collect(),
+            self.task_deps,
+            self.data_deps,
             Rc::new(TaskConfiguration {
                 resources,
                 n_outputs: self.n_outputs,

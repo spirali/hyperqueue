@@ -10,5 +10,7 @@ pub mod comm;
 pub mod configuration;
 pub(crate) mod resources;
 
+pub(crate) mod localcomm;
+
 #[cfg(test)]
 mod test_util;

@@ -4,14 +4,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bstr::BString;
+use tako::datasrv::DataObjectId;
+use tako::gateway::{
+    FromGatewayMessage, NewTasksMessage, ResourceRequestVariants, SharedTaskConfiguration,
+    TaskConfiguration, TaskDataFlags, ToGatewayMessage,
+};
 use tako::Map;
 use tako::Set;
 use thin_vec::ThinVec;
-
-use tako::gateway::{
-    FromGatewayMessage, NewTasksMessage, ResourceRequestVariants, SharedTaskConfiguration,
-    TaskConfiguration, ToGatewayMessage,
-};
 
 use crate::common::arraydef::IntArray;
 use crate::common::placeholders::{
@@ -99,7 +99,7 @@ pub(crate) fn validate_submit(
                 }
             }
             for task in tasks {
-                for dep_id in &task.dependencies {
+                for dep_id in &task.task_deps {
                     if *dep_id == task.id
                         || (!task_ids.contains(dep_id)
                             && !job
@@ -274,6 +274,7 @@ fn build_tasks_array(
         id: tako_id,
         shared_data_index: 0,
         task_deps: ThinVec::new(),
+        dataobj_deps: ThinVec::new(),
         body,
     };
 
@@ -317,10 +318,10 @@ fn build_tasks_array(
         tasks,
         shared_data: vec![SharedTaskConfiguration {
             resources: task_desc.resources.clone(),
-            n_outputs: 0,
             time_limit: task_desc.time_limit,
             priority: task_desc.priority,
             crash_limit: task_desc.crash_limit,
+            data_flags: TaskDataFlags::empty(),
         }],
         adjust_instance_id: Default::default(),
     }
@@ -335,7 +336,7 @@ fn build_tasks_graph(
     let mut shared_data = vec![];
     let mut shared_data_map =
         Map::<(Cow<ResourceRequestVariants>, Option<Duration>, Priority), usize>::new();
-    let mut allocate_shared_data = |task: &TaskDescription| -> u32 {
+    let mut allocate_shared_data = |task: &TaskDescription, data_flags: TaskDataFlags| -> u32 {
         shared_data_map
             .get(&(
                 Cow::Borrowed(&task.resources),
@@ -355,10 +356,10 @@ fn build_tasks_graph(
                 );
                 shared_data.push(SharedTaskConfiguration {
                     resources: task.resources.clone(),
-                    n_outputs: 0,
                     time_limit: task.time_limit,
                     priority: task.priority,
                     crash_limit: task.crash_limit,
+                    data_flags,
                 });
                 index
             }) as u32
@@ -374,17 +375,25 @@ fn build_tasks_graph(
             submit_dir,
             stream_path,
         );
-        let shared_data_index = allocate_shared_data(&task.task_desc);
+        let shared_data_index = allocate_shared_data(&task.task_desc, task.data_flags);
 
         let task_deps = task
-            .dependencies
+            .task_deps
             .iter()
             .map(|task_id| make_tako_id(job_id, *task_id))
             .collect();
+
+        let dataobj_deps = task
+            .dataobj_deps
+            .iter()
+            .map(|job_do_id| job_do_id.to_dataobj_id(job_id))
+            .collect();
+
         task_configs.push(TaskConfiguration {
             id: make_tako_id(job_id, task.id),
             shared_data_index,
             task_deps,
+            dataobj_deps,
             body,
         });
     }

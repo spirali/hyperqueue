@@ -26,10 +26,10 @@ nix = { workspace = true }
 bstr = { workspace = true }
 psutil = { workspace = true }
 thin-vec = { workspace = true }
+bitflags = { workspace = true }
 
 hashbrown = { version = "0.15", features = ["serde", "inline-more"], default-features = false }
 priority-queue = "2"
-bitflags = "2"
 fxhash = "0.2"
 derive_more = { version = "1", features = ["add", "add_assign", "sum"] }
 

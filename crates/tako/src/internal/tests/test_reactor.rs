@@ -1121,3 +1121,22 @@ fn test_worker_groups() {
     );
     assert!(core.worker_group("default").is_none());
 }
+
+#[test]
+fn test_data_deps() {
+    todo!(); // This should fail, because of impplied task deps are not implemented, bit it does not fail?!?
+    let mut core = Core::default();
+    let t1 = TaskBuilder::new(1).build();
+    let t2 = TaskBuilder::new(2).data_dep(&t1, 0.into()).build();
+    let t3 = TaskBuilder::new(3).data_dep(&t2, 123.into()).build();
+    submit_test_tasks(&mut core, vec![t1, t2, t3]);
+    core.assert_waiting(&[2, 3]);
+    core.assert_ready(&[1]);
+    create_test_workers(&mut core, &[4]);
+    start_and_finish_on_worker(&mut core, 1, 100);
+    core.assert_waiting(&[3]);
+    core.assert_ready(&[2]);
+
+    start_and_finish_on_worker(&mut core, 2, 100);
+    core.assert_ready(&[3]);
+}

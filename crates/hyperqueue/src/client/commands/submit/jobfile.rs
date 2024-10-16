@@ -17,7 +17,8 @@ use crate::{JobId, JobTaskCount, JobTaskId};
 use clap::Parser;
 use smallvec::smallvec;
 use std::path::PathBuf;
-use tako::gateway::{ResourceRequest, ResourceRequestVariants};
+use tako::gateway::{ResourceRequest, ResourceRequestVariants, TaskDataFlags};
+use tako::internal::server::task::TaskFlags;
 use tako::program::{FileOnCloseBehavior, ProgramDefinition, StdioDef};
 
 #[derive(Parser)]
@@ -89,10 +90,16 @@ fn build_task(tdef: TaskDef, max_id: &mut JobTaskId) -> TaskWithDependencies {
         *max_id = JobTaskId::new(max_id.as_num() + 1);
         *max_id
     });
+    let mut data_flags = TaskDataFlags::empty();
+    if tdef.keep_outputs {
+        data_flags.insert(TaskDataFlags::KEEP_ALL_OUTPUTS);
+    }
     TaskWithDependencies {
         id,
+        data_flags,
         task_desc: build_task_description(tdef.config),
-        dependencies: tdef.deps,
+        task_deps: tdef.deps,
+        dataobj_deps: tdef.data_deps,
     }
 }
 

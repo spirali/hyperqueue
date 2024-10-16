@@ -6,12 +6,15 @@ use std::process::Stdio;
 
 use crate::internal::common::error::DsError::GenericError;
 use crate::internal::common::resources::{Allocation, ResourceRequest};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use nix::libc;
 use tokio::process::Command;
 
+use crate::gateway::TaskDataFlags;
 use crate::internal::common::resources::map::ResourceMap;
+use crate::internal::server::worker::Worker;
 use crate::internal::worker::configuration::WorkerConfiguration;
+use crate::internal::worker::localcomm::Token;
 use crate::internal::worker::resources::map::ResourceLabelMap;
 use crate::internal::worker::state::WorkerState;
 use crate::internal::worker::task::Task;
@@ -72,6 +75,7 @@ pub struct TaskBuildContext<'a> {
     pub(crate) task: &'a Task,
     pub(crate) state: &'a WorkerState,
     pub(crate) resource_index: usize,
+    pub(crate) token: Option<Token>,
 }
 
 impl<'a> TaskBuildContext<'a> {
@@ -81,6 +85,10 @@ impl<'a> TaskBuildContext<'a> {
 
     pub fn resources(&self) -> &'a ResourceRequest {
         &self.task.resources.requests()[self.resource_index]
+    }
+
+    pub fn data_flags(&self) -> TaskDataFlags {
+        self.task.data_flags
     }
 
     pub fn n_resource_variants(&self) -> usize {
@@ -121,6 +129,12 @@ impl<'a> TaskBuildContext<'a> {
 
     pub fn get_resource_label_map(&self) -> &ResourceLabelMap {
         self.state.get_resource_label_map()
+    }
+
+    pub fn data_access_key(&self) -> Option<BString> {
+        self.token
+            .as_ref()
+            .map(|token| self.state.lc_state.borrow().data_access_key(token))
     }
 
     pub fn server_uid(&self) -> &str {

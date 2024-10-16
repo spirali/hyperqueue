@@ -1,10 +1,13 @@
+use crate::gateway::TaskDataFlags;
 use crate::internal::common::resources::Allocation;
 use crate::internal::messages::common::TaskFailInfo;
 use crate::internal::messages::worker::{FromWorkerMessage, TaskRunningMsg};
+use crate::internal::worker::localcomm::{Registration, Token};
 use crate::internal::worker::state::{WorkerState, WorkerStateRef};
 use crate::internal::worker::task_comm::RunningTaskComm;
 use crate::launcher::{TaskBuildContext, TaskFuture, TaskLaunchData, TaskResult};
 use crate::TaskId;
+use bstr::{BString, ByteSlice};
 use futures::future::Either;
 use std::rc::Rc;
 use tokio::sync::oneshot;
@@ -27,13 +30,20 @@ pub(crate) fn start_task(
     state.start_task(task_id, task_comm, allocation);
 
     let task = state.get_task(task_id);
-    assert_eq!(task.n_outputs, 0);
-
+    //let (tasks, lc_state, launcher) = state.borrow_tasks_and_lc_state_and_launcher();
+    //let task = tasks.get(&task_id);
+    let token = task.need_data_layer().then(|| {
+        state
+            .lc_state
+            .borrow_mut()
+            .register_task(Registration::DataConnection { task_id })
+    });
     match state.task_launcher.build_task(
         TaskBuildContext {
             task,
             state,
             resource_index,
+            token: token.clone(),
         },
         end_receiver,
     ) {
@@ -50,7 +60,12 @@ pub(crate) fn start_task(
                     context: task_context,
                 }));
 
-            tokio::task::spawn_local(handle_task_future(task_future, state_ref.clone(), task_id));
+            tokio::task::spawn_local(handle_task_future(
+                task_future,
+                state_ref.clone(),
+                task_id,
+                token.clone(),
+            ));
         }
         Err(error) => {
             log::debug!(
@@ -58,6 +73,9 @@ pub(crate) fn start_task(
                 task_id,
                 error
             );
+            if let Some(token) = token {
+                state.lc_state.borrow_mut().unregister_token(&token);
+            }
             state.finish_task_failed(task_id, TaskFailInfo::from_string(error.to_string()));
         }
     };
@@ -65,12 +83,20 @@ pub(crate) fn start_task(
 
 /// Polls the task future and makes sure that various situations
 /// (like cancellation, errors, timeout) are handled correctly.
-async fn handle_task_future(task_future: TaskFuture, state_ref: WorkerStateRef, task_id: TaskId) {
+async fn handle_task_future(
+    task_future: TaskFuture,
+    state_ref: WorkerStateRef,
+    task_id: TaskId,
+    token: Option<Token>,
+) {
     let time_limit = {
         let state = state_ref.get();
         if let Some(task) = state.find_task(task_id) {
             task.time_limit
         } else {
+            if let Some(token) = token {
+                state.lc_state.borrow_mut().unregister_token(&token)
+            }
             // Task was removed before spawn took place
             return;
         }
@@ -99,6 +125,9 @@ async fn handle_task_future(task_future: TaskFuture, state_ref: WorkerStateRef, 
         task_future.await
     };
     let mut state = state_ref.get_mut();
+    if let Some(token) = token {
+        state.lc_state.borrow_mut().unregister_token(&token)
+    }
     match result {
         Ok(TaskResult::Finished) => {
             log::debug!("Inner task finished id={}", task_id);

@@ -7,6 +7,7 @@ use clap_complete::Shell;
 use tako::WorkerId;
 
 use crate::client::commands::autoalloc::AutoAllocOpts;
+use crate::client::commands::data::TaskDataOpts;
 use crate::client::commands::job::{
     JobCancelOpts, JobCatOpts, JobCloseOpts, JobForgetOpts, JobInfoOpts, JobListOpts,
     JobTaskIdsOpts,
@@ -200,6 +201,8 @@ pub enum SubCommand {
     AutoAlloc(AutoAllocOpts),
     /// Event and journal management
     Journal(JournalOpts),
+    /// Data object management inside a task
+    TaskData(TaskDataOpts),
     /// Start the HyperQueue CLI dashboard
     #[cfg(feature = "dashboard")]
     Dashboard(DashboardOpts),
