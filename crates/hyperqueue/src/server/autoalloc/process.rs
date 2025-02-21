@@ -640,8 +640,7 @@ fn sync_allocation_status(
                     None
                 }
                 AllocationState::Running {
-                    ref mut connected_workers,
-                    ..
+                    connected_workers, ..
                 } => {
                     if allocation.target_worker_count == connected_workers.len() as u64 {
                         log::warn!("Allocation {allocation_id} already has the expected number of workers, worker {worker_id} is not expected");
@@ -672,8 +671,8 @@ fn sync_allocation_status(
                         None
                     }
                     AllocationState::Running {
-                        ref mut disconnected_workers,
-                        ref mut connected_workers,
+                        disconnected_workers,
+                        connected_workers,
                         started_at,
                         status_error_count: _,
                     } => {

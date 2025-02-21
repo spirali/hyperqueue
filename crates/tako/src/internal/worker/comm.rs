@@ -35,7 +35,7 @@ impl WorkerComm {
     pub fn test(&mut self) -> &mut crate::internal::tests::utils::worker::TestWorkerComm {
         match self {
             Self::Real(_) => panic!("Cannot get testing testing comm"),
-            Self::Test(ref mut comm) => comm,
+            Self::Test(comm) => comm,
         }
     }
 

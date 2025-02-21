@@ -77,7 +77,7 @@ impl Task {
 
     pub fn decrease_waiting_count(&mut self) -> bool {
         match &mut self.state {
-            TaskState::Waiting(ref mut x) => {
+            TaskState::Waiting(x) => {
                 assert!(*x > 0);
                 *x -= 1;
                 *x == 0
@@ -88,7 +88,7 @@ impl Task {
 
     pub fn increase_waiting_count(&mut self) {
         match &mut self.state {
-            TaskState::Waiting(ref mut x) => {
+            TaskState::Waiting(x) => {
                 *x += 1;
             }
             _ => unreachable!(),

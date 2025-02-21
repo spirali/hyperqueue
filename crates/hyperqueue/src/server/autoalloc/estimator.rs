@@ -34,7 +34,7 @@ impl ServerTaskState {
         self.jobs = self
             .jobs
             .iter()
-            .filter(|(_, &waiting)| waiting > 0)
+            .filter(|&(_, waiting)| *waiting > 0)
             .map(|(id, waiting)| (*id, *waiting))
             .collect();
     }

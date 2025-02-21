@@ -20,7 +20,7 @@ fn bench_remove_single_task(c: &mut BenchmarkGroup<WallTime>) {
                         add_tasks(&mut core, task_count);
                         (core, TaskId::new(0))
                     },
-                    |(ref mut core, task_id)| {
+                    |(core, task_id)| {
                         let _ = core.remove_task(*task_id);
                     },
                     BatchSize::SmallInput,
@@ -42,7 +42,7 @@ fn bench_remove_all_tasks(c: &mut BenchmarkGroup<WallTime>) {
                         let tasks: Set<_> = add_tasks(&mut core, task_count).into_iter().collect();
                         (core, tasks)
                     },
-                    |(ref mut core, tasks)| {
+                    |(core, tasks)| {
                         core.remove_tasks_batched(tasks);
                     },
                     BatchSize::SmallInput,
@@ -68,7 +68,7 @@ fn bench_add_task(c: &mut BenchmarkGroup<WallTime>) {
                         ));
                         (core, Some(task))
                     },
-                    |(ref mut core, task)| {
+                    |(core, task)| {
                         core.add_task(task.take().unwrap());
                     },
                     BatchSize::SmallInput,
@@ -92,7 +92,7 @@ fn bench_add_tasks(c: &mut BenchmarkGroup<WallTime>) {
                             .collect();
                         (core, tasks)
                     },
-                    |(ref mut core, tasks)| {
+                    |(core, tasks)| {
                         for task in tasks.drain(..) {
                             core.add_task(task);
                         }
