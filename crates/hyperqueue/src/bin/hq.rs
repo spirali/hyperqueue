@@ -400,7 +400,11 @@ async fn main() -> hyperqueue::Result<()> {
 
     // Also enable backtraces by default.
     // This enables backtraces when panicking, but also for normal anyhow errors.
-    std::env::set_var("RUST_BACKTRACE", "full");
+    // SAFETY: we are at the beginning of the program, no other threads that could set
+    // environment variables should be executing.
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "full");
+    }
 
     // This further disables backtraces for normal anyhow errors.
     // They should not be printed to users in release mode.
