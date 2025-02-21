@@ -7,6 +7,7 @@ use crate::internal::worker::localcomm::IntroMessage;
 use bstr::BStr;
 use futures::{SinkExt, StreamExt};
 use std::path::Path;
+use std::rc::Rc;
 use tokio::net::UnixStream;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
@@ -16,6 +17,7 @@ pub struct DataClient {
 
 impl DataClient {
     pub async fn connect(path: &Path, token: &BStr) -> crate::Result<Self> {
+        log::debug!("Creating local connection to: {}", path.display());
         let stream = UnixStream::connect(path).await?;
         let mut stream =
             crate::internal::worker::localcomm::make_protocol_builder().new_framed(stream);
@@ -65,14 +67,14 @@ impl DataClient {
         Ok(())
     }
 
-    pub async fn get_input(&mut self, input_id: DataInputId) -> crate::Result<DataObject> {
+    pub async fn get_input(&mut self, input_id: DataInputId) -> crate::Result<Rc<DataObject>> {
         let message = ToDataNodeLocalMessage::GetInput { input_id };
         self.send_message(message).await?;
         let message = self.read_message().await?;
-        if let FromDataNodeLocalMessage::DataObject(dataobj) = message {
-            Ok(dataobj)
-        } else {
-            Err(DsError::GenericError("Invalid response".to_string()))
+        match message {
+            FromDataNodeLocalMessage::DataObject(dataobj) => Ok(dataobj),
+            FromDataNodeLocalMessage::Error(message) => Err(crate::Error::GenericError(message)),
+            _ => Err(DsError::GenericError("Invalid response".to_string())),
         }
     }
 }

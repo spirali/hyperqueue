@@ -1,4 +1,5 @@
-use super::dataobj::DataObjectId;
+use super::dataobj::{DataObjectId, InputMap};
+use crate::datasrv::DataInputId;
 use crate::internal::common::error::DsError;
 use crate::internal::datasrv::messages::{
     DataObject, FromDataNodeLocalMessage, ToDataNodeLocalMessage,
@@ -61,6 +62,7 @@ impl DataNodeRef {
 async fn datanode_message_handler(
     data_node_ref: &DataNodeRef,
     task_id: TaskId,
+    input_map: &Option<Rc<Vec<DataObjectId>>>,
     message: ToDataNodeLocalMessage,
     tx: &mut (impl Sink<Bytes> + Unpin),
 ) -> crate::Result<()> {
@@ -75,7 +77,21 @@ async fn datanode_message_handler(
             send_message(tx, FromDataNodeLocalMessage::Uploaded(data_id)).await?;
         }
         ToDataNodeLocalMessage::GetInput { input_id } => {
-            todo!()
+            if let Some(data_id) = input_map
+                .as_ref()
+                .and_then(|map| map.get(input_id.as_num() as usize))
+            {
+                if let Some(data_obj) = data_node_ref.get_mut().get_object(*data_id) {
+                    send_message(tx, FromDataNodeLocalMessage::DataObject(data_obj.clone()))
+                        .await?;
+                } else {
+                    return Err(DsError::GenericError(format!(
+                        "DataObject {data_id} (input {input_id}) not found"
+                    )));
+                }
+            } else {
+                return Err(DsError::GenericError(format!("Input {input_id} not found")));
+            }
         }
     }
     Ok(())
@@ -97,11 +113,14 @@ pub(crate) async fn datanode_connection_handler(
     mut rx: impl Stream<Item = Result<BytesMut, std::io::Error>> + Unpin,
     mut tx: (impl Sink<Bytes> + Unpin),
     task_id: TaskId,
+    input_map: Option<Rc<Vec<DataObjectId>>>,
 ) -> crate::Result<()> {
     while let Some(data) = rx.next().await {
         let data = data?;
         let message: ToDataNodeLocalMessage = bincode::deserialize(&data)?;
-        if let Err(e) = datanode_message_handler(&data_node_ref, task_id, message, &mut tx).await {
+        if let Err(e) =
+            datanode_message_handler(&data_node_ref, task_id, &input_map, message, &mut tx).await
+        {
             log::debug!("Data handler failed: {}", e);
             send_message(&mut tx, FromDataNodeLocalMessage::Error(e.to_string())).await?;
         }

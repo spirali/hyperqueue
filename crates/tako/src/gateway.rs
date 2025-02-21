@@ -97,7 +97,7 @@ bitflags::bitflags! {
     #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct TaskDataFlags: u32 {
-        const KEEP_ALL_OUTPUTS = 0b00000001;
+        const ENABLE_DATA_LAYER = 0b00000001;
     }
 }
 

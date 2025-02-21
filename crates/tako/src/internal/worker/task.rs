@@ -1,3 +1,4 @@
+use crate::datasrv::DataObjectId;
 use crate::gateway::TaskDataFlags;
 use crate::internal::common::resources::Allocation;
 use crate::internal::common::stablemap::ExtractKey;
@@ -22,6 +23,8 @@ pub struct Task {
     pub time_limit: Option<Duration>,
     pub body: Box<[u8]>,
     pub node_list: Vec<WorkerId>, // Filled in multi-node tasks; otherwise empty
+
+    pub data_deps: Option<Rc<Vec<DataObjectId>>>,
     pub data_flags: TaskDataFlags,
 }
 
@@ -36,6 +39,7 @@ impl Task {
             time_limit: message.time_limit,
             body: message.body,
             node_list: message.node_list,
+            data_deps: (!message.data_deps.is_empty()).then(|| Rc::new(message.data_deps)),
             data_flags: message.data_flags,
         }
     }
@@ -97,7 +101,7 @@ impl Task {
     }
 
     pub fn need_data_layer(&self) -> bool {
-        self.data_flags.contains(TaskDataFlags::KEEP_ALL_OUTPUTS)
+        self.data_flags.contains(TaskDataFlags::ENABLE_DATA_LAYER)
     }
 }
 

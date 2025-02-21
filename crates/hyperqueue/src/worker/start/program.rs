@@ -8,6 +8,7 @@ use std::time::Duration;
 use bstr::{BStr, BString, ByteSlice};
 use futures::future::Either;
 use futures::TryFutureExt;
+use itertools::Itertools;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use tempfile::TempDir;
@@ -29,7 +30,6 @@ use crate::worker::streamer::StreamSender;
 use crate::worker::streamer::StreamerRef;
 use crate::{JobId, JobTaskId};
 use tako::comm::serialize;
-use tako::gateway::TaskDataFlags;
 use tako::launcher::{
     command_from_definitions, StopReason, TaskBuildContext, TaskLaunchData, TaskResult,
 };
@@ -160,6 +160,10 @@ pub(super) fn build_program_task(
         );
         if let Some(key) = build_ctx.data_access_key() {
             program.env.insert(HQ_DATA_ACCESS.into(), key);
+            program.env.insert(
+                "HQ".into(),
+                std::env::args().next().unwrap_or_default().into(),
+            );
         }
 
         let ctx = CompletePlaceholderCtx {

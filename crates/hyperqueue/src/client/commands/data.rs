@@ -2,30 +2,39 @@ use crate::client::globalsettings::GlobalSettings;
 use crate::common::error::HqError;
 use clap::Parser;
 use std::path::{Path, PathBuf};
-use tako::datasrv::{DataClient, DataId};
+use tako::datasrv::{DataClient, DataId, DataInputId};
 
 #[derive(Parser)]
-pub struct TaskDataOpts {
+pub struct DataOpts {
     #[clap(subcommand)]
-    subcmd: TaskDataCommand,
+    subcmd: DataCommand,
 }
 
 #[derive(Parser)]
-enum TaskDataCommand {
+enum DataCommand {
     /// Inside a task, put a data object into the local datanode
     Put(PutOpts),
+    /// Inside a task, get an input data object into the local datanode
+    Get(GetOpts),
 }
 
 #[derive(Parser)]
 pub struct PutOpts {
+    /// DataId of task output
+    data_id: DataId,
     /// Path of file/directory that should be uploaded
     path: PathBuf,
     /// DataId of task output
-    #[arg(long)]
-    data_id: DataId,
-    /// DataId of task output
     #[arg(long, default_value = "")]
     mime_type: String,
+}
+
+#[derive(Parser)]
+pub struct GetOpts {
+    /// Input ID
+    input_id: DataInputId,
+    /// Path of file/directory that should be uploaded
+    path: PathBuf,
 }
 
 async fn create_local_data_client() -> crate::Result<DataClient> {
@@ -38,17 +47,19 @@ async fn create_local_data_client() -> crate::Result<DataClient> {
     Ok(DataClient::connect(&Path::new(path), token.into()).await?)
 }
 
-pub async fn command_task_data(
-    _gsettings: &GlobalSettings,
-    opts: TaskDataOpts,
-) -> anyhow::Result<()> {
+pub async fn command_task_data(_gsettings: &GlobalSettings, opts: DataOpts) -> anyhow::Result<()> {
     match opts.subcmd {
-        TaskDataCommand::Put(put_opts) => {
+        DataCommand::Put(put_opts) => {
             let data = std::fs::read(&put_opts.path)?;
             let mut client = create_local_data_client().await?;
             client
                 .put_data_object(put_opts.data_id, put_opts.mime_type, data)
                 .await?;
+        }
+        DataCommand::Get(get_opts) => {
+            let mut client = create_local_data_client().await?;
+            let data_obj = client.get_input(get_opts.input_id).await?;
+            std::fs::write(get_opts.path, &data_obj.data)?;
         }
     }
     Ok(())

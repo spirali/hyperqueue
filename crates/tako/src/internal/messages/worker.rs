@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use crate::datasrv::DataObjectId;
 use crate::gateway::TaskDataFlags;
 use crate::hwstats::WorkerHwStateMessage;
 use crate::internal::common::resources::{ResourceAmount, ResourceIndex};
@@ -32,6 +33,7 @@ pub struct ComputeTaskMsg {
     pub time_limit: Option<Duration>,
     pub node_list: Vec<WorkerId>,
 
+    pub data_deps: Vec<DataObjectId>,
     pub data_flags: TaskDataFlags,
 
     #[serde(with = "serde_bytes")]

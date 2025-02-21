@@ -31,6 +31,7 @@ use crate::internal::worker::configuration::{
     sync_worker_configuration, OverviewConfiguration, ServerLostPolicy, WorkerConfiguration,
 };
 use crate::internal::worker::hwmonitor::HwSampler;
+use crate::internal::worker::localcomm::handle_local_comm;
 use crate::internal::worker::reactor::start_task;
 use crate::internal::worker::state::{WorkerState, WorkerStateRef};
 use crate::internal::worker::task::Task;
@@ -176,6 +177,9 @@ pub async fn run_worker(
         }
     };
 
+    let local_conn_listener = state.get().lc_state.borrow().create_listener()?;
+    let local_comm_fut = handle_local_comm(local_conn_listener, state.clone());
+
     let heartbeat_fut = heartbeat_process(heartbeat_interval, state.clone());
     let idle_timeout_fut = match configuration.idle_timeout {
         Some(timeout) => Either::Left(idle_timeout_process(timeout, state.clone())),
@@ -224,6 +228,7 @@ pub async fn run_worker(
             _ = &mut try_start_tasks => { unreachable!() }
             _ = heartbeat_fut => { unreachable!() }
             _ = overview_fut => { unreachable!() }
+            _ = local_comm_fut => { unreachable!() }
         };
 
         // Handle sending stop info to the server and finishing running tasks gracefully.

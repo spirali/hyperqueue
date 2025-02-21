@@ -9,7 +9,7 @@ pub enum DsError {
     SerializationError(String),
     #[error("Scheduler error: {0}")]
     SchedulerError(String),
-    #[error("Error: {0}")]
+    #[error("{0}")]
     GenericError(String),
 }
 

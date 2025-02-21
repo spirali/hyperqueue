@@ -1,4 +1,6 @@
+use crate::datasrv::{DataInputId, DataObjectId};
 use crate::internal::datasrv::datanode_connection_handler;
+use crate::internal::datasrv::dataobj::InputMap;
 use crate::internal::worker::state::WorkerStateRef;
 use crate::{Map, TaskId};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
@@ -7,6 +9,7 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, Cow};
+use std::future::Future;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -16,7 +19,10 @@ use tokio_util::codec::length_delimited::Builder;
 use tokio_util::codec::LengthDelimitedCodec;
 
 pub(crate) enum Registration {
-    DataConnection { task_id: TaskId },
+    DataConnection {
+        task_id: TaskId,
+        input_map: Option<Rc<Vec<DataObjectId>>>,
+    },
     // TODO: SubworkerConnection
 }
 
@@ -102,24 +108,8 @@ impl LocalCommState {
         out
     }
 
-    pub fn start(&self, state_ref: WorkerStateRef) -> crate::Result<()> {
-        let listener = UnixListener::bind(&self.unix_socket_path)?;
-        spawn_local(async move {
-            loop {
-                let socket = listener.accept().await;
-                let state_ref = state_ref.clone();
-                if let Ok((socket, _)) = socket {
-                    spawn_local(async move {
-                        if let Err(e) = handle_connection(state_ref, socket).await {
-                            log::error!("lc connection error: {}", e);
-                        }
-                    });
-                } else if let Err(e) = socket {
-                    log::error!("failed to accept lc connection: {e}");
-                };
-            }
-        });
-        Ok(())
+    pub fn create_listener(&self) -> crate::Result<UnixListener> {
+        Ok(UnixListener::bind(&self.unix_socket_path)?)
     }
 }
 
@@ -143,12 +133,13 @@ async fn handle_connection(state_ref: WorkerStateRef, stream: UnixStream) -> cra
             .check_token(message.token.as_bstr())
             .ok_or_else(|| crate::Error::GenericError("Invalid token".to_string()))?;
         match registration {
-            Registration::DataConnection { task_id } => {
+            Registration::DataConnection { task_id, input_map } => {
                 let task_id = *task_id;
                 let data_node_ref = state.data_node_ref.clone();
+                let input_map = input_map.clone();
                 drop(lc_state);
                 drop(state);
-                datanode_connection_handler(data_node_ref, rx, tx, task_id).await?;
+                datanode_connection_handler(data_node_ref, rx, tx, task_id, input_map).await?;
             }
         }
     } else {
@@ -157,21 +148,21 @@ async fn handle_connection(state_ref: WorkerStateRef, stream: UnixStream) -> cra
     Ok(())
 }
 
-async fn run_local_comm(state_ref: WorkerStateRef, listener: UnixListener) -> crate::Result<()> {
+pub async fn handle_local_comm(
+    listener: UnixListener,
+    state_ref: WorkerStateRef,
+) -> crate::Result<()> {
     loop {
-        match listener.accept().await {
-            Ok((stream, addr)) => {
-                log::debug!("New local connection via unix socket: {addr:?}");
-                let state_ref = state_ref.clone();
-                tokio::task::spawn_local(async move {
-                    if let Err(err) = handle_connection(state_ref, stream).await {
-                        log::error!("Local connection error: {err}");
-                    }
-                });
-            }
-            Err(e) => {
-                log::debug!("Accepting a new data client via unix socket failed: {e}")
-            }
-        }
+        let socket = listener.accept().await;
+        let state_ref = state_ref.clone();
+        if let Ok((socket, _)) = socket {
+            spawn_local(async move {
+                if let Err(e) = handle_connection(state_ref, socket).await {
+                    log::error!("lc connection error: {}", e);
+                }
+            });
+        } else if let Err(e) = socket {
+            log::error!("failed to accept lc connection: {e}");
+        };
     }
 }

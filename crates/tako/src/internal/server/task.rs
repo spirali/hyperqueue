@@ -72,7 +72,7 @@ pub struct Task {
     pub state: TaskRuntimeState,
     consumers: Set<TaskId>,
     pub task_deps: ThinVec<TaskId>,
-    pub dataobj_deps: ThinVec<DataObjectId>,
+    pub data_deps: ThinVec<DataObjectId>,
     pub flags: TaskFlags,
     pub configuration: Rc<TaskConfiguration>,
     pub scheduler_priority: Priority,
@@ -107,7 +107,7 @@ impl Task {
         Self {
             id,
             task_deps,
-            dataobj_deps,
+            data_deps: dataobj_deps,
             flags,
             configuration,
             body,
@@ -235,6 +235,7 @@ impl Task {
             resources: self.configuration.resources.clone(),
             time_limit: self.configuration.time_limit,
             node_list,
+            data_deps: self.data_deps.iter().copied().collect(),
             data_flags: self.configuration.data_flags,
             body: self.body.clone(),
         })

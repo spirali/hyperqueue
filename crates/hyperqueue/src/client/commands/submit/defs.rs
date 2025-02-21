@@ -10,9 +10,7 @@ use serde::{Deserialize, Deserializer};
 use smallvec::SmallVec;
 use std::path::PathBuf;
 use std::time::Duration;
-use tako::datasrv::DataObjectId;
-use tako::gateway::{ResourceRequest, ResourceRequestEntries, ResourceRequestEntry, TaskDataFlags};
-use tako::internal::server::task::TaskFlags;
+use tako::gateway::{ResourceRequest, ResourceRequestEntries, ResourceRequestEntry};
 use tako::program::FileOnCloseBehavior;
 use tako::resources::{AllocationRequest, NumOfNodes, ResourceAmount};
 use tako::{Map, Priority};
@@ -219,9 +217,6 @@ pub struct TaskDef {
 
     #[serde(default)]
     pub data_deps: Vec<JobDataObjectId>,
-
-    #[serde(default)]
-    pub keep_outputs: bool,
 }
 
 fn deserialize_array_opt<'de, D>(deserializer: D) -> Result<Option<IntArray>, D::Error>
@@ -262,6 +257,9 @@ pub struct JobDef {
     pub array: Option<ArrayDef>,
 
     pub stream: Option<PathBuf>,
+
+    #[serde(default)]
+    pub data_layer: bool,
 }
 
 impl JobDef {

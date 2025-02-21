@@ -14,7 +14,6 @@ use bstr::BString;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tako::datasrv::DataObjectId;
 use tako::gateway::{LostWorkerReason, ResourceRequestVariants, TaskDataFlags};
 use tako::program::ProgramDefinition;
 use tako::worker::WorkerConfiguration;
@@ -115,7 +114,7 @@ pub struct TaskWithDependencies {
     pub id: JobTaskId,
     pub task_desc: TaskDescription,
     pub task_deps: Vec<JobTaskId>,
-    pub dataobj_deps: Vec<JobDataObjectId>,
+    pub data_deps: Vec<JobDataObjectId>,
     pub data_flags: TaskDataFlags,
 }
 

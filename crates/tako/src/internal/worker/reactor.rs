@@ -36,7 +36,10 @@ pub(crate) fn start_task(
         state
             .lc_state
             .borrow_mut()
-            .register_task(Registration::DataConnection { task_id })
+            .register_task(Registration::DataConnection {
+                task_id,
+                input_map: task.data_deps.clone(),
+            })
     });
     match state.task_launcher.build_task(
         TaskBuildContext {
