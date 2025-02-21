@@ -40,7 +40,7 @@ pub fn start_event_streaming(
     writer: JournalWriter,
     log_path: &Path,
     flush_period: Duration,
-) -> (EventStreamSender, impl Future<Output = ()>) {
+) -> (EventStreamSender, impl Future<Output = ()> + use<>) {
     let (tx, rx) = create_event_stream_queue();
     let log_path = log_path.to_path_buf();
     let handle = std::thread::spawn(move || {

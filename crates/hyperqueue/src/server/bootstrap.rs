@@ -138,7 +138,7 @@ pub async fn initialize_server(
     queue_id_initial_value: QueueId,
     truncate_log: Option<u64>,
 ) -> anyhow::Result<(
-    impl Future<Output = anyhow::Result<()>>,
+    impl Future<Output = anyhow::Result<()>> + use<>,
     Arc<Notify>,
     StateRef,
     Senders,

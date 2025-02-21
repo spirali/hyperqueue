@@ -993,7 +993,7 @@ fn try_pause_queue(autoalloc: &mut AutoAllocState, id: QueueId) {
 
 pub fn prepare_queue_cleanup(
     state: &AllocationQueue,
-) -> Vec<impl Future<Output = (AutoAllocResult<()>, AllocationId)>> {
+) -> Vec<impl Future<Output = (AutoAllocResult<()>, AllocationId)> + use<>> {
     let handler = state.handler();
     state
         .active_allocations()

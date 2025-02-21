@@ -105,7 +105,7 @@ const MAX_WAIT_FOR_RUNNING_TASKS_SHUTDOWN: Duration = Duration::from_secs(5);
 /// Connects to the server and starts a message receiving loop.
 /// The worker will attempt to clean up after itself once it's stopped or once stop_flag is notified.
 pub async fn run_worker(
-    scheduler_addresses: &[SocketAddr],
+    scheduler_addresses: Vec<SocketAddr>,
     mut configuration: WorkerConfiguration,
     secret_key: Option<Arc<SecretKey>>,
     launcher_setup: impl Fn(&str, WorkerId) -> Box<dyn TaskLauncher>,
@@ -122,7 +122,7 @@ pub async fn run_worker(
         mut opener,
         mut sealer,
         ..
-    } = connect_to_server_and_authenticate(scheduler_addresses, &secret_key).await?;
+    } = connect_to_server_and_authenticate(&scheduler_addresses, &secret_key).await?;
     {
         let message = ConnectionRegistration::Worker(RegisterWorker {
             configuration: configuration.clone(),
