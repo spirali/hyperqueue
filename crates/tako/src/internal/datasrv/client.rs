@@ -61,10 +61,11 @@ impl DataClient {
         };
         self.send_message(message).await?;
         let message = self.read_message().await?;
-        if !matches!(message, FromDataNodeLocalMessage::Uploaded(id) if id == data_id) {
-            return Err(DsError::GenericError("Invalid response".to_string()));
+        match message {
+            FromDataNodeLocalMessage::Uploaded(id) if id == data_id => Ok(()),
+            FromDataNodeLocalMessage::Error(message) => Err(crate::Error::GenericError(message)),
+            _ => Err(DsError::GenericError("Invalid response".to_string())),
         }
-        Ok(())
     }
 
     pub async fn get_input(&mut self, input_id: DataInputId) -> crate::Result<Rc<DataObject>> {

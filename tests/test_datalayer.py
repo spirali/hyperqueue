@@ -39,6 +39,22 @@ command = ["bash", "-c", "set -e; $HQ data get 3 test.txt"]
         assert "Input 3 not found" in f.read()
 
 
+def test_data_transfer_invalid_upload(hq_env: HqEnv, tmp_path):
+    tmp_path.joinpath("job.toml").write_text("""
+data_layer = true
+        
+[[task]]
+id = 12
+command = ["bash", "-c", "set -e; touch test.txt; $HQ data put 3 test.txt; $HQ data put 3 test.txt"]
+""")
+    hq_env.start_server()
+    hq_env.start_worker()
+    hq_env.command(["job", "submit-file", "job.toml"])
+    wait_for_job_state(hq_env, 1, "FAILED")
+    with open(os.path.join(tmp_path, default_task_output(job_id=1, task_id=12, type="stderr"))) as f:
+        assert "/3 already exists" in f.read()
+
+
 def test_data_transfer_same_worker(hq_env: HqEnv, tmp_path):
     tmp_path.joinpath("job.toml").write_text(
         """
