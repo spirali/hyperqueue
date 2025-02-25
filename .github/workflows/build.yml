@@ -124,7 +124,10 @@ jobs:
           path: ${{ steps.archive.outputs.archive-name }}
   build-python-binding:
     needs: [ set-env ]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.image }}
+    strategy:
+            matrix:
+                image: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -133,6 +136,7 @@ jobs:
           key: pyhq
       - uses: messense/maturin-action@v1
         env:
+          HQ_BUILD_VERSION: ${{ needs.set-env.outputs.version }}
           CARGO_PROFILE_DIST_PANIC: unwind
           CARGO_PROFILE_DIST_STRIP: none
           CARGO_TARGET_DIR: target
