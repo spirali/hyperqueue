@@ -121,7 +121,7 @@ impl State {
         self.job_id_counter = id.as_num();
     }
 
-    pub fn last_n_ids(&self, n: u32) -> impl Iterator<Item = JobId> {
+    pub fn last_n_ids(&self, n: u32) -> impl Iterator<Item = JobId> + use<> {
         let n = min(n, self.job_id_counter - 1);
         ((self.job_id_counter - n)..self.job_id_counter).map(|id| id.into())
     }

@@ -112,7 +112,7 @@ pub async fn initialize_worker(
     log::debug!("Starting Tako worker ...");
     let stop_flag = Arc::new(Notify::new());
     let ((worker_id, configuration), worker_future) = run_worker(
-        &server_addresses,
+        server_addresses,
         configuration,
         Some(record.worker.secret_key.clone()),
         |server_uid, worker_id| {

@@ -276,7 +276,7 @@ impl OutputLog {
             .get(&job_id)
             .ok_or_else(|| anyhow::format_err!("Job {job_id} not found"))?;
         Ok(match tasks {
-            Some(ref array) => {
+            Some(array) => {
                 let mut infos = Vec::new();
                 for task_id in array.iter() {
                     if let Some(task_info) = job.get(&JobTaskId::new(task_id)) {

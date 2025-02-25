@@ -170,7 +170,7 @@ pub(super) async fn start_worker(
             .unwrap();
         let future = async move {
             let result = run_worker(
-                &[server_address],
+                vec![server_address],
                 configuration,
                 secret_key,
                 |_server_uid, _worker_id| Box::new(TestTaskLauncher),

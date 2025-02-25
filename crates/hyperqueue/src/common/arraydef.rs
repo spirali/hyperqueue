@@ -18,7 +18,7 @@ impl IntRange {
         IntRange { start, count, step }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = u32> {
+    pub fn iter(&self) -> impl Iterator<Item = u32> + use<> {
         (self.start..self.start + self.count).step_by(self.step as usize)
     }
 
