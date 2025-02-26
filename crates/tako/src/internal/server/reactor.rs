@@ -298,6 +298,12 @@ pub(crate) fn on_task_finished(
         }
     }
 
+    if !msg.output_ids.is_empty() {
+        // TODO: Register output ids
+        // TODO: Register size of output
+        todo!()
+    }
+
     // TODO: benchmark vec vs set
     let consumers: Set<TaskId> = {
         let task = core.get_task(msg.id);

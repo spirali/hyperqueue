@@ -293,6 +293,9 @@ pub(crate) async fn worker_receive_loop<
             FromWorkerMessage::Stop(reason) => {
                 return Ok(Some(reason));
             }
+            FromWorkerMessage::PlacementQuery(data_id) => {
+                todo!()
+            }
         }
     }
     Ok(None)

@@ -1,6 +1,6 @@
 use crate::datasrv::{DataInputId, DataObjectId};
-use crate::internal::datasrv::datanode_connection_handler;
 use crate::internal::datasrv::dataobj::InputMap;
+use crate::internal::worker::datanode::datanode_connection_handler;
 use crate::internal::worker::state::WorkerStateRef;
 use crate::{Map, TaskId};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
@@ -135,11 +135,11 @@ async fn handle_connection(state_ref: WorkerStateRef, stream: UnixStream) -> cra
         match registration {
             Registration::DataConnection { task_id, input_map } => {
                 let task_id = *task_id;
-                let data_node_ref = state.data_node_ref.clone();
                 let input_map = input_map.clone();
                 drop(lc_state);
                 drop(state);
-                datanode_connection_handler(data_node_ref, rx, tx, task_id, input_map).await?;
+                let state_ref = state_ref.clone();
+                datanode_connection_handler(state_ref, rx, tx, task_id, input_map).await?;
             }
         }
     } else {

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::datasrv::DataObjectId;
+use crate::datasrv::{DataId, DataObjectId};
 use crate::gateway::TaskDataFlags;
 use crate::hwstats::WorkerHwStateMessage;
 use crate::internal::common::resources::{ResourceAmount, ResourceIndex};
@@ -76,6 +76,7 @@ pub enum ToWorkerMessage {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TaskFinishedMsg {
     pub id: TaskId,
+    pub output_ids: Vec<DataId>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -136,7 +137,6 @@ pub enum WorkerStopReason {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-//#[serde(tag = "op")]
 pub enum FromWorkerMessage {
     TaskFinished(TaskFinishedMsg),
     TaskFailed(TaskFailedMsg),
@@ -145,4 +145,5 @@ pub enum FromWorkerMessage {
     Overview(WorkerOverview),
     Heartbeat,
     Stop(WorkerStopReason),
+    PlacementQuery(DataObjectId),
 }

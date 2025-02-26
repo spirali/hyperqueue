@@ -12,5 +12,6 @@ pub(crate) mod resources;
 
 pub(crate) mod localcomm;
 
+pub mod datanode;
 #[cfg(test)]
 mod test_util;

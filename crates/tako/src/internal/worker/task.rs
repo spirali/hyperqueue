@@ -1,16 +1,24 @@
-use crate::datasrv::DataObjectId;
+use crate::datasrv::{DataId, DataObjectId};
 use crate::gateway::TaskDataFlags;
 use crate::internal::common::resources::Allocation;
 use crate::internal::common::stablemap::ExtractKey;
+use crate::internal::datasrv::messages::DataObject;
 use crate::internal::messages::worker::ComputeTaskMsg;
+use crate::internal::worker::state::WorkerState;
 use crate::internal::worker::task_comm::RunningTaskComm;
-use crate::{InstanceId, Priority, TaskId, WorkerId};
+use crate::{InstanceId, Map, Priority, TaskId, WorkerId};
 use std::rc::Rc;
 use std::time::Duration;
 
+pub(crate) struct RunningState {
+    pub comm: RunningTaskComm,
+    pub allocation: Rc<Allocation>,
+    pub outputs: Vec<DataId>,
+}
+
 pub enum TaskState {
     Waiting(u32),
-    Running(RunningTaskComm, Rc<Allocation>),
+    Running(RunningState),
 }
 
 pub struct Task {
@@ -29,11 +37,11 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(message: ComputeTaskMsg) -> Self {
+    pub fn new(message: ComputeTaskMsg, task_state: TaskState) -> Self {
         Self {
+            state: task_state,
             id: message.id,
             priority: (message.user_priority, message.scheduler_priority),
-            state: TaskState::Waiting(0),
             instance_id: message.instance_id,
             resources: message.resources,
             time_limit: message.time_limit,
@@ -56,19 +64,19 @@ impl Task {
 
     #[inline]
     pub fn is_running(&self) -> bool {
-        matches!(self.state, TaskState::Running(_, _))
+        matches!(self.state, TaskState::Running(_))
     }
 
     pub fn resource_allocation(&self) -> Option<&Allocation> {
         match &self.state {
-            TaskState::Running(_, a) => Some(a),
+            TaskState::Running(s) => Some(&s.allocation),
             TaskState::Waiting(_) => None,
         }
     }
 
     pub fn task_comm_mut(&mut self) -> Option<&mut RunningTaskComm> {
         match self.state {
-            TaskState::Running(ref mut comm, _) => Some(comm),
+            TaskState::Running(ref mut s) => Some(&mut s.comm),
             _ => None,
         }
     }

@@ -3,11 +3,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::datasrv::DataId;
 use crate::internal::common::resources::map::ResourceMap;
 use crate::internal::common::resources::Allocation;
 use crate::internal::common::stablemap::StableMap;
 use crate::internal::common::{Map, Set, WrappedRcRefCell};
-use crate::internal::datasrv::DataNodeRef;
 use crate::internal::messages::common::TaskFailInfo;
 use crate::internal::messages::worker::{
     FromWorkerMessage, NewWorkerMsg, StealResponse, TaskFailedMsg, TaskFinishedMsg,
@@ -15,11 +15,12 @@ use crate::internal::messages::worker::{
 use crate::internal::server::workerload::WorkerResources;
 use crate::internal::worker::comm::WorkerComm;
 use crate::internal::worker::configuration::WorkerConfiguration;
+use crate::internal::worker::datanode::DataNode;
 use crate::internal::worker::localcomm::LocalCommState;
 use crate::internal::worker::resources::allocator::ResourceAllocator;
 use crate::internal::worker::resources::map::ResourceLabelMap;
 use crate::internal::worker::rqueue::ResourceWaitQueue;
-use crate::internal::worker::task::{Task, TaskState};
+use crate::internal::worker::task::{RunningState, Task, TaskState};
 use crate::internal::worker::task_comm::RunningTaskComm;
 use crate::launcher::TaskLauncher;
 use crate::TaskId;
@@ -53,7 +54,7 @@ pub struct WorkerState {
     pub(crate) last_task_finish_time: Instant,
 
     pub(crate) lc_state: RefCell<LocalCommState>,
-    pub(crate) data_node_ref: DataNodeRef,
+    pub(crate) data_node: DataNode,
 
     resource_map: ResourceMap,
     resource_label_map: ResourceLabelMap,
@@ -137,28 +138,43 @@ impl WorkerState {
         self.last_task_finish_time = Instant::now();
     }
 
-    fn remove_task(&mut self, task_id: TaskId, just_finished: bool) {
-        match self.tasks.remove(&task_id).unwrap().state {
+    fn remove_task(
+        &mut self,
+        task_id: TaskId,
+        just_finished: bool,
+        keep_outputs: bool,
+    ) -> Vec<DataId> {
+        let output_ids = match self.tasks.remove(&task_id).unwrap().state {
             TaskState::Waiting(x) => {
                 log::debug!("Removing waiting task id={}", task_id);
                 assert!(!just_finished);
                 if x == 0 {
                     self.ready_task_queue.remove_task(task_id);
                 }
+                Vec::new()
             }
-            TaskState::Running(_, allocation) => {
+            TaskState::Running(s) => {
                 log::debug!("Removing running task id={}", task_id);
                 assert!(just_finished);
                 assert!(self.running_tasks.remove(&task_id));
                 self.schedule_task_start();
-                self.ready_task_queue.release_allocation(allocation);
+                self.ready_task_queue.release_allocation(s.allocation);
+                if keep_outputs {
+                    s.outputs
+                } else {
+                    if !s.outputs.is_empty() {
+                        // TODO: Remove from data node
+                    }
+                    Vec::new()
+                }
             }
-        }
+        };
 
         if self.tasks.is_empty() {
             self.comm.notify_worker_is_empty();
         }
         self.reset_idle_timer();
+        output_ids
     }
 
     pub fn get_worker_address(&self, worker_id: WorkerId) -> Option<&String> {
@@ -173,7 +189,7 @@ impl WorkerState {
             .filter_map(|t| if t.is_running() { None } else { Some(t.id) })
             .collect();
         for task_id in non_running_tasks {
-            self.remove_task(task_id, false);
+            self.remove_task(task_id, false, false);
         }
     }
 
@@ -188,15 +204,15 @@ impl WorkerState {
                 false
             }
             Some(task) => match task.state {
-                TaskState::Running(ref mut env, _) => {
-                    env.send_cancel_notification();
+                TaskState::Running(ref mut s) => {
+                    s.comm.send_cancel_notification();
                     false
                 }
                 TaskState::Waiting(_) => true,
             },
         };
         if was_waiting {
-            self.remove_task(task_id, false);
+            self.remove_task(task_id, false, false);
         }
     }
 
@@ -205,11 +221,11 @@ impl WorkerState {
             None => StealResponse::NotHere,
             Some(task) => match task.state {
                 TaskState::Waiting(_) => StealResponse::Ok,
-                TaskState::Running(_, _) => StealResponse::Running,
+                TaskState::Running(_) => StealResponse::Running,
             },
         };
         if let StealResponse::Ok = &response {
-            self.remove_task(task_id, false);
+            self.remove_task(task_id, false, false);
         }
         response
     }
@@ -229,24 +245,31 @@ impl WorkerState {
         allocation: Rc<Allocation>,
     ) {
         let task = self.get_task_mut(task_id);
-        task.state = TaskState::Running(task_comm, allocation);
+        task.state = TaskState::Running(RunningState {
+            comm: task_comm,
+            allocation,
+            outputs: Default::default(),
+        });
         self.running_tasks.insert(task_id);
     }
 
     pub fn finish_task(&mut self, task_id: TaskId) {
-        self.remove_task(task_id, true);
-        let message = FromWorkerMessage::TaskFinished(TaskFinishedMsg { id: task_id });
+        let output_ids = self.remove_task(task_id, true, true);
+        let message = FromWorkerMessage::TaskFinished(TaskFinishedMsg {
+            id: task_id,
+            output_ids,
+        });
         self.comm.send_message_to_server(message);
     }
 
     pub fn finish_task_failed(&mut self, task_id: TaskId, info: TaskFailInfo) {
-        self.remove_task(task_id, true);
+        self.remove_task(task_id, true, false);
         let message = FromWorkerMessage::TaskFailed(TaskFailedMsg { id: task_id, info });
         self.comm.send_message_to_server(message);
     }
 
     pub fn finish_task_cancel(&mut self, task_id: TaskId) {
-        self.remove_task(task_id, true);
+        self.remove_task(task_id, true, false);
     }
 
     pub fn get_resource_map(&self) -> &ResourceMap {
@@ -325,7 +348,7 @@ impl WorkerStateRef {
             reservation: false,
             worker_addresses: Default::default(),
             lc_state: RefCell::new(LocalCommState::new()),
-            data_node_ref: DataNodeRef::new(),
+            data_node: DataNode::new(),
         })
     }
 }

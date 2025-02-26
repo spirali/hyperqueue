@@ -34,7 +34,7 @@ use crate::internal::worker::hwmonitor::HwSampler;
 use crate::internal::worker::localcomm::handle_local_comm;
 use crate::internal::worker::reactor::start_task;
 use crate::internal::worker::state::{WorkerState, WorkerStateRef};
-use crate::internal::worker::task::Task;
+use crate::internal::worker::task::{Task, TaskState};
 use crate::launcher::TaskLauncher;
 use crate::WorkerId;
 use futures::future::Either;
@@ -396,8 +396,19 @@ pub(crate) fn process_worker_message(state: &mut WorkerState, message: ToWorkerM
     match message {
         ToWorkerMessage::ComputeTask(msg) => {
             log::debug!("Task assigned: {}", msg.id);
-            let task = Task::new(msg);
-            state.add_task(task);
+            let task_state = TaskState::Waiting(if msg.data_deps.is_empty() {
+                0
+            } else {
+                let mut waiting: u32 = 0;
+                msg.data_deps.iter().for_each(|data_id| {
+                    if !state.data_node.has_object(*data_id) {
+                        waiting += 1;
+                        todo!()
+                    }
+                });
+                waiting
+            });
+            state.add_task(Task::new(msg, task_state));
         }
         ToWorkerMessage::StealTasks(msg) => {
             log::debug!("Steal {} attempts", msg.ids.len());

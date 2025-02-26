@@ -8,6 +8,7 @@ use crate::internal::common::resources::map::{ResourceIdAllocator, ResourceMap};
 use crate::internal::common::resources::{ResourceId, ResourceRequestVariants};
 use crate::internal::common::{Set, WrappedRcRefCell};
 use crate::internal::scheduler::multinode::MultiNodeQueue;
+use crate::internal::server::dataobjmap::DataObjectMap;
 use crate::internal::server::rpc::ConnectionDescriptor;
 use crate::internal::server::task::{Task, TaskRuntimeState};
 use crate::internal::server::taskmap::TaskMap;
@@ -24,6 +25,7 @@ pub struct Core {
     tasks: TaskMap,
     workers: WorkerMap,
     worker_groups: Map<String, WorkerGroup>,
+    data_objects: DataObjectMap,
 
     /* Scheduler items */
     parked_resources: Set<WorkerResources>, // Resources of workers that has flag NOTHING_TO_LOAD
